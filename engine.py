@@ -60,14 +60,16 @@ def handle_keys():
 
 def main():
     initialize_game()
+    con = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     exit_game = False
 
     while not tcod.console_is_window_closed() and not exit_game:
-        tcod.console_set_default_foreground(0, tcod.white)
-        tcod.console_put_char(0, player_x, player_y, '@', tcod.BKGND_NONE)
+        tcod.console_set_default_foreground(con, tcod.white)
+        tcod.console_put_char(con, player_x, player_y, '@', tcod.BKGND_NONE)
+        tcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
         tcod.console_flush()
-        tcod.console_put_char(0, player_x, player_y, ' ', tcod.BKGND_NONE)
+        tcod.console_put_char(con, player_x, player_y, ' ', tcod.BKGND_NONE)
 
         # handle keys and exit game if needed
         exit_game = handle_keys()
