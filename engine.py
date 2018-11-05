@@ -6,9 +6,22 @@ SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 LIMIT_FPS = 20
 TURN_BASED = True
+MAP_WIDTH = 80
+MAP_HEIGHT = 45
+TRADITIONAL_LOOK = False
 
 con = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
+colour_dark_wall = tcod.Color(0, 30, 0)
+colour_dark_ground = tcod.Color(20, 60, 20)
 
+class Tile:
+    # A tile of the map and its porperties
+    def __init__(self, blocked, block_sight = None):
+        self.blocked = blocked
+
+        # By default, if a tile is blocked, it also blocks sight
+        block_sight = blocked if block_sight is None else None
+        self.block_sight = block_sight
 
 class Object:
     # This is a generic object: the player, a monster, an item, the toilet...
@@ -20,7 +33,6 @@ class Object:
         self.colour = colour
 
     def move(self, dx, dy):
-        # move by the given amount
         self.x += dx
         self.y += dy
 
@@ -31,24 +43,50 @@ class Object:
 
     def clear(self):
         # erase the character that represents this object
-        tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
+        if TRADITIONAL_LOOK:
+            tcod.console_put_char_ex(con, self.x, self.y, '.', tcod.white, colour_dark_ground)
+        else:
+            tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
 
-def initialize_game():
-    global player_x, player_y
-    player_x = SCREEN_WIDTH // 2
-    player_y = SCREEN_HEIGHT // 2
+def make_map():
+    global map
 
-    # Set up font
-    font_path = 'arial10x10.png'
-    font_flags = tcod.FONT_TYPE_GREYSCALE | tcod.FONT_LAYOUT_TCOD
-    tcod.console_set_custom_font(font_path, font_flags)
+    # Fill map with "unblocked" tiles
+    map = [
+        [Tile(False) for y in range (MAP_HEIGHT)]
+        for x in range(MAP_WIDTH)
+    ]
 
-    # Initialise screen
-    window_title = 'Python 3 tutorial'
-    tcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, window_title, FULLSCREEN)
+    # Place two test tiles
+    map[30][22].blocked = True
+    map[30][22].block_sight = True
+    map[50][22].blocked = True
+    map[50][22].block_sight = True
 
-    # set FPS
-    tcod.sys_set_fps(LIMIT_FPS)
+def render_all():
+    global colour_light_wall
+    global colour_light_ground
+
+    for y in range(MAP_HEIGHT):
+        for x in range(MAP_WIDTH):
+            wall = map[x][y].block_sight
+            if wall:
+                if TRADITIONAL_LOOK:
+                    tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_dark_wall)
+                else:
+                    tcod.console_set_char_background(con, x, y, colour_dark_wall, tcod.BKGND_SET)
+            else:
+                if TRADITIONAL_LOOK:
+                    tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_dark_ground)
+                else:
+                    tcod.console_set_char_background(con, x, y, colour_dark_ground, tcod.BKGND_SET)
+
+    #draw all objects in the list
+    for object in objects:
+        object.draw()
+
+    # Blit the contents of con to the root console
+    tcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
 
 def get_key_event(turn_based = None):
     if turn_based:
@@ -84,6 +122,21 @@ def handle_keys():
     elif tcod.console_is_key_pressed(tcod.KEY_RIGHT):
         player.move(1, 0)
 
+def initialize_game():
+    # Set up font
+    font_path = 'arial10x10.png'
+    font_flags = tcod.FONT_TYPE_GREYSCALE | tcod.FONT_LAYOUT_TCOD
+    tcod.console_set_custom_font(font_path, font_flags)
+
+    # Initialise screen
+    window_title = 'Python 3 tutorial'
+    tcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, window_title, FULLSCREEN)
+
+    # set FPS
+    tcod.sys_set_fps(LIMIT_FPS)
+
+    make_map()
+
 player = Object(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, '@', tcod.white)
 npc = Object(SCREEN_WIDTH // 2 - 5, SCREEN_HEIGHT // 2, '@', tcod.yellow)
 objects = [npc, player]
@@ -92,17 +145,17 @@ def main():
     initialize_game()
 
 
+
     exit_game = False
 
 
 
     while not tcod.console_is_window_closed() and not exit_game:
-        for object in objects:
-            object.draw()
+        render_all()
 
-        tcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
         tcod.console_flush()
 
+        # Erase all objects at their old locations before they move
         for object in objects:
             object.clear()
 
