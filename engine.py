@@ -100,11 +100,8 @@ def main():
         for object in objects:
             object.draw()
 
-        #tcod.console_set_default_foreground(con, tcod.white)
-        #tcod.console_put_char(con, player_x, player_y, '@', tcod.BKGND_NONE)
         tcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
         tcod.console_flush()
-        tcod.console_put_char(con, player_x, player_y, ' ', tcod.BKGND_NONE)
 
         for object in objects:
             object.clear()
