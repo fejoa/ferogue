@@ -33,8 +33,10 @@ class Object:
         self.colour = colour
 
     def move(self, dx, dy):
-        self.x += dx
-        self.y += dy
+        # move by the given amount, if the destination is not blocked
+        if not map[self.x + dx][self.y + dy].blocked:
+            self.x += dx
+            self.y += dy
 
     def draw(self):
         # set the colour and then draw the character that represents this oject at its position
