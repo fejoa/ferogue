@@ -266,6 +266,8 @@ def handle_keys():
 
 
 def initialize_game():
+    global fov_recompute, fov_map
+
     # Set up font
     font_path = 'arial10x10.png'
     font_flags = tcod.FONT_TYPE_GREYSCALE | tcod.FONT_LAYOUT_TCOD
@@ -280,18 +282,18 @@ def initialize_game():
 
     make_map()
 
+    # Create the FOV map, according to the generated map
+    fov_map = tcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+    for y in range(MAP_HEIGHT):
+        for x in range(MAP_WIDTH):
+            tcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+
+    fov_recompute = True
+
 
 player = Object(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, '@', tcod.white)
 npc = Object(SCREEN_WIDTH // 2 - 5, SCREEN_HEIGHT // 2, '@', tcod.yellow)
 objects = [npc, player]
-
-# Create the FOV map, according to the generated map
-fov_map = tcod.map_new(MAP_WIDTH, MAP_HEIGHT)
-for y in range(MAP_HEIGHT):
-    for x in range(MAP_WIDTH):
-        tcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
-
-fov_recompute = True
 
 
 def main():
