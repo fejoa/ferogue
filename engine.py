@@ -189,33 +189,33 @@ def render_all():
         fov_recompute = False
         tcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
 
-    # Go through all tiles and set background colour according to FOV
-    for y in range(MAP_HEIGHT):
-        for x in range(MAP_WIDTH):
-            visible = tcod.map_is_in_fov(fov_map, x, y)
-            wall = map[x][y].block_sight
-            if not visible:
-                if wall:
-                    if TRADITIONAL_LOOK:
-                        tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_dark_wall)
+        # Go through all tiles and set background colour according to FOV
+        for y in range(MAP_HEIGHT):
+            for x in range(MAP_WIDTH):
+                visible = tcod.map_is_in_fov(fov_map, x, y)
+                wall = map[x][y].block_sight
+                if not visible:
+                    if wall:
+                        if TRADITIONAL_LOOK:
+                            tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_dark_wall)
+                        else:
+                            tcod.console_set_char_background(con, x, y, colour_dark_wall, tcod.BKGND_SET)
                     else:
-                        tcod.console_set_char_background(con, x, y, colour_dark_wall, tcod.BKGND_SET)
+                        if TRADITIONAL_LOOK:
+                            tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_dark_ground)
+                        else:
+                            tcod.console_set_char_background(con, x, y, colour_dark_ground, tcod.BKGND_SET)
                 else:
-                    if TRADITIONAL_LOOK:
-                        tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_dark_ground)
+                    if wall:
+                        if TRADITIONAL_LOOK:
+                            tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_light_wall)
+                        else:
+                            tcod.console_set_char_background(con, x, y, colour_light_wall, tcod.BKGND_SET)
                     else:
-                        tcod.console_set_char_background(con, x, y, colour_dark_ground, tcod.BKGND_SET)
-            else:
-                if wall:
-                    if TRADITIONAL_LOOK:
-                        tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_light_wall)
-                    else:
-                        tcod.console_set_char_background(con, x, y, colour_light_wall, tcod.BKGND_SET)
-                else:
-                    if TRADITIONAL_LOOK:
-                        tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_light_ground)
-                    else:
-                        tcod.console_set_char_background(con, x, y, colour_light_ground, tcod.BKGND_SET)
+                        if TRADITIONAL_LOOK:
+                            tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_light_ground)
+                        else:
+                            tcod.console_set_char_background(con, x, y, colour_light_ground, tcod.BKGND_SET)
 
     # Draw all objects in the list
     for object in objects:
@@ -236,7 +236,7 @@ def get_key_event(turn_based = None):
 
 
 def handle_keys():
-    global player_x, player_y
+    global fov_recompute
 
     key = get_key_event(TURN_BASED)
 
