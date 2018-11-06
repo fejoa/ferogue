@@ -49,6 +49,7 @@ class Rect:
 class Tile:
     # A tile of the map and its properties
     def __init__(self, blocked, block_sight=None):
+        self.explored = False
         self.blocked = blocked
 
         # By default, if a tile is blocked, it also blocks sight
@@ -195,16 +196,18 @@ def render_all():
                 visible = tcod.map_is_in_fov(fov_map, x, y)
                 wall = map[x][y].block_sight
                 if not visible:
-                    if wall:
-                        if TRADITIONAL_LOOK:
-                            tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_dark_wall)
+                    # if it's not visible right now, the player can only see it if it's explored
+                    if map[x][y].explored:
+                        if wall:
+                            if TRADITIONAL_LOOK:
+                                tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_dark_wall)
+                            else:
+                                tcod.console_set_char_background(con, x, y, colour_dark_wall, tcod.BKGND_SET)
                         else:
-                            tcod.console_set_char_background(con, x, y, colour_dark_wall, tcod.BKGND_SET)
-                    else:
-                        if TRADITIONAL_LOOK:
-                            tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_dark_ground)
-                        else:
-                            tcod.console_set_char_background(con, x, y, colour_dark_ground, tcod.BKGND_SET)
+                            if TRADITIONAL_LOOK:
+                                tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_dark_ground)
+                            else:
+                                tcod.console_set_char_background(con, x, y, colour_dark_ground, tcod.BKGND_SET)
                 else:
                     if wall:
                         if TRADITIONAL_LOOK:
@@ -216,6 +219,8 @@ def render_all():
                             tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_light_ground)
                         else:
                             tcod.console_set_char_background(con, x, y, colour_light_ground, tcod.BKGND_SET)
+                    # since it's visible, explore it
+                    map[x][y].explored = True
 
     # Draw all objects in the list
     for object in objects:
