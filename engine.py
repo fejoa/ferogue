@@ -16,9 +16,15 @@ TURN_BASED = True
 TRADITIONAL_LOOK = False
 SHOW_ROOM_NUMBERS = False
 
+FOV_ALGO = 0
+FOV_LIGHT_WALLS = True
+TORCH_RADIUS = 10
+
 con = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
 colour_dark_wall = tcod.Color(0, 30, 0)
 colour_dark_ground = tcod.Color(20, 60, 20)
+colour_light_wall = tcod.Color(130, 110, 50)
+colour_light_ground = tcod.Color(200, 180, 50)
 
 
 class Rect:
@@ -35,10 +41,9 @@ class Rect:
         return (centre_x, centre_y)
 
     def intersect(self, other):
-        # Returns true if this rectangle intersects with anotherone
+        # Returns true if this rectangle intersects with another one
         return(self.x1 <= other.x2 and self.x2 >= other.x1 and
-               self.y1 <= other.y2 and self.y2 >=other.y1)
-
+               self.y1 <= other.y2 and self.y2 >= other.y1)
 
 
 class Tile:
@@ -67,9 +72,10 @@ class Object:
             self.y += dy
 
     def draw(self):
-        # set the colour and then draw the character that represents this oject at its position
-        tcod.console_set_default_foreground(con, self.colour)
-        tcod.console_put_char(con, self.x, self.y, self.char, tcod.BKGND_NONE)
+        if tcod.map_is_in_fov(fov_map, self.x, self.y):
+            # set the colour and then draw the character that represents this oject at its position
+            tcod.console_set_default_foreground(con, self.colour)
+            tcod.console_put_char(con, self.x, self.y, self.char, tcod.BKGND_NONE)
 
     def clear(self):
         # erase the character that represents this object
@@ -89,11 +95,11 @@ def create_room(room):
 
 
 def make_map():
-    global map
+    global map, player
 
     # Fill map with "blocked" tiles
     map = [
-        [Tile(True) for y in range (MAP_HEIGHT)]
+        [Tile(True) for y in range(MAP_HEIGHT)]
         for x in range(MAP_WIDTH)
     ]
 
@@ -158,7 +164,6 @@ def make_map():
                 objects.insert(0, room_no)  # draw early, so monsters are drawn on top
 
 
-
 def create_h_tunnel(x1, x2, y):
     global map
     for x in range(min(x1, x2), max(x1, x2) + 1):
@@ -175,22 +180,42 @@ def create_v_tunnel(y1, y2, x):
 
 
 def render_all():
-    global colour_light_wall
-    global colour_light_ground
+    global fov_map, colour_dark_wall, colour_light_wall
+    global colour_dark_ground, colour_light_ground
+    global fov_recompute
 
+    if fov_recompute:
+        # Recompute FOV if needed (the player moved or something)
+        fov_recompute = False
+        tcod.map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
+
+    # Go through all tiles and set background colour according to FOV
     for y in range(MAP_HEIGHT):
         for x in range(MAP_WIDTH):
+            visible = tcod.map_is_in_fov(fov_map, x, y)
             wall = map[x][y].block_sight
-            if wall:
-                if TRADITIONAL_LOOK:
-                    tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_dark_wall)
+            if not visible:
+                if wall:
+                    if TRADITIONAL_LOOK:
+                        tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_dark_wall)
+                    else:
+                        tcod.console_set_char_background(con, x, y, colour_dark_wall, tcod.BKGND_SET)
                 else:
-                    tcod.console_set_char_background(con, x, y, colour_dark_wall, tcod.BKGND_SET)
+                    if TRADITIONAL_LOOK:
+                        tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_dark_ground)
+                    else:
+                        tcod.console_set_char_background(con, x, y, colour_dark_ground, tcod.BKGND_SET)
             else:
-                if TRADITIONAL_LOOK:
-                    tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_dark_ground)
+                if wall:
+                    if TRADITIONAL_LOOK:
+                        tcod.console_put_char_ex(con, x, y, '#', tcod.white, colour_light_wall)
+                    else:
+                        tcod.console_set_char_background(con, x, y, colour_light_wall, tcod.BKGND_SET)
                 else:
-                    tcod.console_set_char_background(con, x, y, colour_dark_ground, tcod.BKGND_SET)
+                    if TRADITIONAL_LOOK:
+                        tcod.console_put_char_ex(con, x, y, '.', tcod.white, colour_light_ground)
+                    else:
+                        tcod.console_set_char_background(con, x, y, colour_light_ground, tcod.BKGND_SET)
 
     # Draw all objects in the list
     for object in objects:
@@ -225,15 +250,19 @@ def handle_keys():
     # movement keys
     if tcod.console_is_key_pressed(tcod.KEY_UP):
         player.move(0, -1)
+        fov_recompute = True
 
     elif tcod.console_is_key_pressed(tcod.KEY_DOWN):
         player.move(0, 1)
+        fov_recompute = True
 
     elif tcod.console_is_key_pressed(tcod.KEY_LEFT):
         player.move(-1, 0)
+        fov_recompute = True
 
     elif tcod.console_is_key_pressed(tcod.KEY_RIGHT):
         player.move(1, 0)
+        fov_recompute = True
 
 
 def initialize_game():
@@ -255,6 +284,14 @@ def initialize_game():
 player = Object(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, '@', tcod.white)
 npc = Object(SCREEN_WIDTH // 2 - 5, SCREEN_HEIGHT // 2, '@', tcod.yellow)
 objects = [npc, player]
+
+# Create the FOV map, according to the generated map
+fov_map = tcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+for y in range(MAP_HEIGHT):
+    for x in range(MAP_WIDTH):
+        tcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+
+fov_recompute = True
 
 
 def main():
