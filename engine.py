@@ -5,10 +5,16 @@ FULLSCREEN = False
 SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 LIMIT_FPS = 20
-TURN_BASED = True
+
 MAP_WIDTH = 80
 MAP_HEIGHT = 45
+ROOM_MAX_SIZE = 10
+ROOM_MIN_SIZE = 6
+MAX_ROOMS = 30
+
+TURN_BASED = True
 TRADITIONAL_LOOK = False
+SHOW_ROOM_NUMBERS = False
 
 con = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
 colour_dark_wall = tcod.Color(0, 30, 0)
@@ -23,10 +29,21 @@ class Rect:
         self.x2 = x + w
         self.y2 = y + h
 
+    def centre(self):
+        centre_x = (self.x1 + self.x2) // 2
+        centre_y = (self.y1 + self.y2) // 2
+        return (centre_x, centre_y)
+
+    def intersect(self, other):
+        # Returns true if this rectangle intersects with anotherone
+        return(self.x1 <= other.x2 and self.x2 >= other.x1 and
+               self.y1 <= other.y2 and self.y2 >=other.y1)
+
+
 
 class Tile:
-    # A tile of the map and its porperties
-    def __init__(self, blocked, block_sight = None):
+    # A tile of the map and its properties
+    def __init__(self, blocked, block_sight=None):
         self.blocked = blocked
 
         # By default, if a tile is blocked, it also blocks sight
@@ -80,15 +97,66 @@ def make_map():
         for x in range(MAP_WIDTH)
     ]
 
-    room1 = Rect(20, 15, 10, 15)
-    room2 = Rect(50, 15, 10, 15)
-    create_room(room1)
-    create_room(room2)
+    rooms = []
+    num_rooms = 0
 
-    player.x = 25
-    player.y = 23
+    for r in range(MAX_ROOMS):
+        # Random width and height
+        w = tcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+        h = tcod.random_get_int(0, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+        # Random position without going out og the boundaries of the map
+        x = tcod.random_get_int(0, 0, MAP_WIDTH - w - 1)
+        y = tcod.random_get_int(0, 0, MAP_HEIGHT - h - 1)
 
-    create_h_tunnel(25, 55, 23)
+        # 'Rect' class makes rectangles easier to work with
+        new_room = Rect(x, y, w, h)
+
+        # Run through the other rooms and see if they intersect with this one
+        failed = False
+        for other_room in rooms:
+            if new_room.intersect(other_room):
+                failed = True
+                break
+
+        if not failed:
+            # This means there are no intersections, so this room is valid
+
+            # "Paint" it to the map's tiles
+            create_room(new_room)
+
+            # Centre coordinates of new room, will be useful later
+            (new_x, new_y) = new_room.centre()
+            if num_rooms == 0:
+                # This is the first room, where the player starts
+                player.x = new_x
+                player.y = new_y
+            else:
+                # All rooms after the first:
+                # Connect it to the previous room with a tunnel
+
+                # Centre co-ordinates of previous room
+                (prev_x, prev_y) = rooms[num_rooms - 1].centre()
+
+                # Flip a coin
+                if tcod.random_get_int(0, 0, 1) == 1:
+                    # First move horizontally, then vertically
+                    create_h_tunnel(prev_x, new_x, prev_y)
+                    create_v_tunnel(prev_y, new_y, new_x)
+                else:
+                    # First move vertically, then horizontally
+                    create_v_tunnel(prev_y, new_y, new_x)
+                    create_h_tunnel(prev_x, new_x, prev_y)
+
+            # Finally, append the new room to the list
+            rooms.append(new_room)
+            num_rooms += 1
+
+            if SHOW_ROOM_NUMBERS and MAX_ROOMS <= 30:
+                # optional: print "room number" to see how the map drawing worked
+                #          we may have more than ten rooms, so print 'A' for the first room, 'B' for the next...
+                room_no = Object(new_x, new_y, chr(64 + num_rooms), tcod.white)
+                objects.insert(0, room_no)  # draw early, so monsters are drawn on top
+
 
 
 def create_h_tunnel(x1, x2, y):
