@@ -29,6 +29,20 @@ colour_light_wall = tcod.Color(130, 110, 50)
 colour_light_ground = tcod.Color(200, 180, 50)
 
 
+class Fighter:
+    # Combat-related properties and methods (monster, player, NPC)
+    def __init__(self, hp, defense, power):
+        self.max_hp = hp
+        self.defense = defense
+        self.power = power
+
+
+class BasicMonster:
+    # AI for a basic monster
+    def take_turn(self):
+        print('The ' + self.owner.name + ' growls')
+
+
 class Rect:
     # A rectangle on the map, used to characterise a room
     def __init__(self, x, y, w, h):
@@ -62,13 +76,20 @@ class Tile:
 class Object:
     # This is a generic object: the player, a monster, an item, the toilet...
     # It's always represented by a character on the screen
-    def __init__(self, x, y, char, name, colour, blocks=False):
+    def __init__(self, x, y, char, name, colour, blocks=False, fighter=None, ai=None):
         self.name = name
         self.blocks = blocks
         self.x = x
         self.y = y
         self.char = char
         self.colour = colour
+        self.fighter = fighter
+        if self.fighter:
+            self.fighter.owner = self
+
+        self.ai = ai
+        if self.ai:
+            self.ai.owner = self
 
     def move(self, dx, dy):
         # move by the given amount, if the destination is not blocked
@@ -101,6 +122,7 @@ def is_blocked(x, y):
 
     return False
 
+
 def place_objects(room):
     # Choose random number of monsters
     num_monsters = tcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
@@ -113,12 +135,17 @@ def place_objects(room):
         if not is_blocked(x, y):
             if tcod.random_get_int(0, 0, 100) < 80:
                 # 80% chance to create fascist
-                monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True)
+                fighter_component = Fighter(hp=10, defense=0, power=3)
+                ai_component = BasicMonster()
+                monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True, fighter=fighter_component,ai=ai_component)
             else:
                 # 20% chance to create bourgeois
-                monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True)
+                fighter_component = Fighter(hp=16, defense=1, power=4)
+                ai_component = BasicMonster()
+                monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
 
             objects.append(monster)
+
 
 def create_room(room):
     global map
@@ -355,8 +382,10 @@ def initialize_game():
     fov_recompute = True
 
 
-player = Object(0, 0, '@', 'player', tcod.white, blocks=True)
+fighter_component = Fighter(hp=30, defense=2, power=5)
+player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
 objects = [player]
+
 
 game_state = 'playing'
 
