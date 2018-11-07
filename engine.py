@@ -20,6 +20,8 @@ FOV_ALGO = 0
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
+MAX_ROOM_MONSTERS = 3
+
 con = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
 colour_dark_wall = tcod.Color(0, 30, 0)
 colour_dark_ground = tcod.Color(20, 60, 20)
@@ -60,7 +62,9 @@ class Tile:
 class Object:
     # This is a generic object: the player, a monster, an item, the toilet...
     # It's always represented by a character on the screen
-    def __init__(self, x, y, char, colour):
+    def __init__(self, x, y, char, name, colour, blocks=False):
+        self.name = name
+        self.blocks = blocks
         self.x = x
         self.y = y
         self.char = char
@@ -68,7 +72,7 @@ class Object:
 
     def move(self, dx, dy):
         # move by the given amount, if the destination is not blocked
-        if not map[self.x + dx][self.y + dy].blocked:
+        if not is_blocked(self.x + dx, self.y + dy):
             self.x += dx
             self.y += dy
 
@@ -85,6 +89,36 @@ class Object:
         else:
             tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
 
+def is_blocked(x, y):
+    # First test the map tile
+    if map[x][y].blocked:
+        return True
+
+    #now check for any blocking objects
+    for object in objects:
+        if object.blocks and object.x == x and object.y == y:
+            return True
+
+    return False
+
+def place_objects(room):
+    # Choose random number of monsters
+    num_monsters = tcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
+
+    for i in range(num_monsters):
+        # Choose random spot for this monster
+        x = tcod.random_get_int(0, room.x1, room.x2)
+        y = tcod.random_get_int(0, room.y1, room.y2)
+
+        if not is_blocked(x, y):
+            if tcod.random_get_int(0, 0, 100) < 80:
+                # 80% chance to create fascist
+                monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True)
+            else:
+                # 20% chance to create bourgeois
+                monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True)
+
+            objects.append(monster)
 
 def create_room(room):
     global map
@@ -154,6 +188,9 @@ def make_map():
                     create_v_tunnel(prev_y, new_y, new_x)
                     create_h_tunnel(prev_x, new_x, prev_y)
 
+            # add some contents to this room, such as monsters
+            place_objects(new_room)
+
             # Finally, append the new room to the list
             rooms.append(new_room)
             num_rooms += 1
@@ -161,7 +198,7 @@ def make_map():
             if SHOW_ROOM_NUMBERS and MAX_ROOMS <= 30:
                 # optional: print "room number" to see how the map drawing worked
                 #          we may have more than ten rooms, so print 'A' for the first room, 'B' for the next...
-                room_no = Object(new_x, new_y, chr(64 + num_rooms), tcod.white)
+                room_no = Object(new_x, new_y, chr(64 + num_rooms), 'room number', tcod.white)
                 objects.insert(0, room_no)  # draw early, so monsters are drawn on top
 
 
@@ -240,8 +277,30 @@ def get_key_event(turn_based = None):
     return key
 
 
+def player_move_or_attack(dx, dy):
+    global fov_recompute
+
+    # The coordinates the player is moving to or attacking
+    x = player.x + dx
+    y = player.y + dy
+
+    # Try to find an attackable object there
+    target = None
+    for object in objects:
+        if object.x == x and object.y == y:
+            target = object
+            break
+    # Attack if target found, move otherwise
+    if target is not None:
+        print('The ' + target.name + ' laughs at your puny efforts to attack them!')
+    else:
+        player.move(dx, dy)
+        fov_recompute = True
+
+
 def handle_keys():
     global fov_recompute
+    global game_state
 
     key = get_key_event(TURN_BASED)
 
@@ -250,24 +309,24 @@ def handle_keys():
         tcod.console_set_fullscreen(not tcod.console_is_fullscreen())
 
     elif key.vk == tcod.KEY_ESCAPE:
-        return True # exit game
+        return 'exit' # exit game
 
-    # movement keys
-    if tcod.console_is_key_pressed(tcod.KEY_UP):
-        player.move(0, -1)
-        fov_recompute = True
+    if game_state == 'playing':
+        # movement keys
+        if tcod.console_is_key_pressed(tcod.KEY_UP):
+            player_move_or_attack(0, -1)
 
-    elif tcod.console_is_key_pressed(tcod.KEY_DOWN):
-        player.move(0, 1)
-        fov_recompute = True
+        elif tcod.console_is_key_pressed(tcod.KEY_DOWN):
+            player_move_or_attack(0, 1)
 
-    elif tcod.console_is_key_pressed(tcod.KEY_LEFT):
-        player.move(-1, 0)
-        fov_recompute = True
+        elif tcod.console_is_key_pressed(tcod.KEY_LEFT):
+            player_move_or_attack(-1, 0)
 
-    elif tcod.console_is_key_pressed(tcod.KEY_RIGHT):
-        player.move(1, 0)
-        fov_recompute = True
+        elif tcod.console_is_key_pressed(tcod.KEY_RIGHT):
+            player_move_or_attack(1, 0)
+
+        else:
+            return 'didnt-take-turn'
 
 
 def initialize_game():
@@ -296,14 +355,16 @@ def initialize_game():
     fov_recompute = True
 
 
-player = Object(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, '@', tcod.white)
-npc = Object(SCREEN_WIDTH // 2 - 5, SCREEN_HEIGHT // 2, '@', tcod.yellow)
-objects = [npc, player]
+player = Object(0, 0, '@', 'player', tcod.white, blocks=True)
+objects = [player]
+
+game_state = 'playing'
 
 
 def main():
     initialize_game()
     exit_game = False
+    player_action = None
 
     while not tcod.console_is_window_closed() and not exit_game:
         render_all()
@@ -315,7 +376,15 @@ def main():
             object.clear()
 
         # handle keys and exit game if needed
-        exit_game = handle_keys()
+        player_action = handle_keys()
+        if player_action == 'exit':
+            break
+
+        if game_state == 'playing' and player_action != 'didnt-take-turn':
+            for object in objects:
+                if object != player:
+                    print('The ' + object.name + ' growls')
+
 
 
 main()
