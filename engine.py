@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import libtcodpy as tcod
+import math
 
 FULLSCREEN = False
 SCREEN_WIDTH = 80
@@ -33,6 +34,7 @@ class Fighter:
     # Combat-related properties and methods (monster, player, NPC)
     def __init__(self, hp, defense, power):
         self.max_hp = hp
+        self.hp = hp
         self.defense = defense
         self.power = power
 
@@ -40,7 +42,15 @@ class Fighter:
 class BasicMonster:
     # AI for a basic monster
     def take_turn(self):
-        print('The ' + self.owner.name + ' growls')
+        # A basic monster takes its turn. If PC can see it, it can see PC
+        monster = self.owner
+        if tcod.map_is_in_fov(fov_map, monster.x, monster.y):
+            # Move towards PC if far away
+            if monster.distance_to(player) >= 2:
+                monster.move_towards(player.x, player.y)
+            # If close enough, attack if player is still alive
+            elif player.fighter.hp > 0:
+                print('The attack of the ' + monster.name + ' bounces off your armour!')
 
 
 class Rect:
@@ -90,6 +100,24 @@ class Object:
         self.ai = ai
         if self.ai:
             self.ai.owner = self
+
+    def move_towards(self, target_x, target_y):
+        # Vector from this object to the target, and distance
+        dx = target_x - self.x
+        dy = target_y - self.y
+        distance = math.sqrt(dx ** 2 + dy ** 2)
+
+        # Normalise it to length 1 (preserving direction), then round it and
+        # convert to integer so the movement is restricted to the map-grid
+        dx = int(round(dx / distance))
+        dy = int(round(dy / distance))
+        self.move(dx, dy)
+
+    def distance_to(self, other):
+        # Return the distance to another object
+        dx = other.x - self.x
+        dy = other.y - self.y
+        return math.sqrt(dx ** 2 + dy ** 2)
 
     def move(self, dx, dy):
         # move by the given amount, if the destination is not blocked
@@ -411,8 +439,8 @@ def main():
 
         if game_state == 'playing' and player_action != 'didnt-take-turn':
             for object in objects:
-                if object != player:
-                    print('The ' + object.name + ' growls')
+                if object.ai:
+                    object.ai.take_turn()
 
 
 
