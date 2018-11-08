@@ -38,6 +38,22 @@ class Fighter:
         self.defense = defense
         self.power = power
 
+    def take_damage(self, damage):
+        # Apply damage if possible
+        if damage > 0:
+            self.hp -= damage
+
+    def attack(self, target):
+        # A simple formula for attack damage
+        damage = self.power - target.fighter.defense
+
+        if damage > 0:
+            # Make the target take some damage
+            print(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.')
+            target.fighter.take_damage(damage)
+        else:
+            print(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect.')
+
 
 class BasicMonster:
     # AI for a basic monster
@@ -50,7 +66,7 @@ class BasicMonster:
                 monster.move_towards(player.x, player.y)
             # If close enough, attack if player is still alive
             elif player.fighter.hp > 0:
-                print('The attack of the ' + monster.name + ' bounces off your armour!')
+                monster.fighter.attack(player)
 
 
 class Rect:
@@ -318,6 +334,10 @@ def render_all():
     for object in objects:
         object.draw()
 
+    # Show the player's stats
+    tcod.console_set_default_foreground(con, tcod.white)
+    tcod.console_print_ex(con, 1, SCREEN_HEIGHT - 2, tcod.BKGND_NONE, tcod.LEFT, 'HP: ' + str(player.fighter.hp) + '/' + str(player.fighter.max_hp))
+
     # Blit the contents of con to the root console
     tcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
 
@@ -347,7 +367,7 @@ def player_move_or_attack(dx, dy):
             break
     # Attack if target found, move otherwise
     if target is not None:
-        print('The ' + target.name + ' laughs at your puny efforts to attack them!')
+        player.fighter.attack(target)
     else:
         player.move(dx, dy)
         fov_recompute = True
