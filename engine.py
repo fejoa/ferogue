@@ -32,16 +32,22 @@ colour_light_ground = tcod.Color(200, 180, 50)
 
 class Fighter:
     # Combat-related properties and methods (monster, player, NPC)
-    def __init__(self, hp, defense, power):
+    def __init__(self, hp, defense, power, death_function=None):
         self.max_hp = hp
         self.hp = hp
         self.defense = defense
         self.power = power
+        self.death_function = death_function
 
     def take_damage(self, damage):
         # Apply damage if possible
         if damage > 0:
             self.hp -= damage
+            # Check for death, if there is a death function, call it
+            if self.hp <= 0:
+                function = self.death_function
+                if function is not None:
+                    function(self.owner)
 
     def attack(self, target):
         # A simple formula for attack damage
@@ -117,6 +123,12 @@ class Object:
         if self.ai:
             self.ai.owner = self
 
+    def send_to_back(self):
+        # Make this object be drawn first, so all others appear above it if they're in the same tile
+        global objects
+        objects.remove(self)
+        objects.insert(0, self)
+
     def move_towards(self, target_x, target_y):
         # Vector from this object to the target, and distance
         dx = target_x - self.x
@@ -154,6 +166,30 @@ class Object:
         else:
             tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
 
+
+def player_death(player):
+    # The game ended
+    global game_state
+    print('You died.')
+    game_state = 'dead'
+
+    # For added effect, transform player into corpse
+    player.char = '%'
+    player.colour = tcod.dark_red
+
+
+def monster_death(monster):
+    # Create monster corpse, doesn't block, can't be attacked, doesn't move
+    print(monster.name.capitalize() + ' dies screaming.')
+    monster.char = '%'
+    monster.colour = tcod.dark_red
+    monster.blocks = False
+    monster.fighter = None
+    monster.ai = None
+    monster.name = 'remains of a ' + monster.name
+    monster.send_to_back()
+
+
 def is_blocked(x, y):
     # First test the map tile
     if map[x][y].blocked:
@@ -179,7 +215,7 @@ def place_objects(room):
         if not is_blocked(x, y):
             if tcod.random_get_int(0, 0, 100) < 80:
                 # 80% chance to create fascist
-                fighter_component = Fighter(hp=10, defense=0, power=3)
+                fighter_component = Fighter(hp=10, defense=0, power=3, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True, fighter=fighter_component,ai=ai_component)
             else:
@@ -332,7 +368,9 @@ def render_all():
 
     # Draw all objects in the list
     for object in objects:
-        object.draw()
+        if object != player:
+            object.draw()
+    player.draw()
 
     # Show the player's stats
     tcod.console_set_default_foreground(con, tcod.white)
@@ -362,7 +400,7 @@ def player_move_or_attack(dx, dy):
     # Try to find an attackable object there
     target = None
     for object in objects:
-        if object.x == x and object.y == y:
+        if object.fighter and object.x == x and object.y == y:
             target = object
             break
     # Attack if target found, move otherwise
@@ -430,7 +468,7 @@ def initialize_game():
     fov_recompute = True
 
 
-fighter_component = Fighter(hp=30, defense=2, power=5)
+fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
 objects = [player]
 
