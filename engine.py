@@ -33,6 +33,8 @@ TORCH_RADIUS = 10
 
 MAX_ROOM_MONSTERS = 3
 
+tcod.sys_set_fps(LIMIT_FPS)
+
 con = tcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 panel = tcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
 mouse = tcod.Mouse()
@@ -419,6 +421,10 @@ def render_all():
     # Show the player's stats
     render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp, tcod.light_red, tcod.darker_red)
 
+    # Display the names of objects under the mouse
+    tcod.console_set_default_foreground(panel, tcod.light_grey)
+    tcod.console_print_ex(panel, 1, 0, tcod.BKGND_NONE, tcod.LEFT, get_names_under_mouse())
+
     # Blit the contents of panel to the root console
     tcod.console_blit(panel, 0, 0, SCREEN_WIDTH, PANEL_HEIGHT, 0, 0, PANEL_Y)
 
@@ -426,14 +432,14 @@ def render_all():
     tcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
 
 
-def get_key_event(turn_based = None):
-    if turn_based:
-        # Turn-based gameplay; wait for a keystroke
-        key = tcod.console_wait_for_keypress(True)
-    else:
-        # Real-time gameplay; don't wait for a player's keystoke
-        key = tcod.console_check_for_keypress()
-    return key
+#def get_key_event(turn_based = None):
+#    if turn_based:
+#        # Turn-based gameplay; wait for a keystroke
+#        key = tcod.console_wait_for_keypress(True)
+#    else:
+#        # Real-time gameplay; don't wait for a player's keystoke
+#        key = tcod.console_check_for_keypress()
+#    return key
 
 
 def player_move_or_attack(dx, dy):
@@ -470,11 +476,26 @@ def add_message(new_msg, colour=tcod.white):
         game_msgs.append((line, colour))
 
 
+def get_names_under_mouse():
+    global mouse
+
+    # Return a string with the names of all objects under the mouse
+    (x, y) = (mouse.cx, mouse.cy)
+
+    # Create a list with the names of all objects at the mouse's coordinated and in FOV
+    names = [obj.name for obj in objects
+        if obj.x == x and obj.y == y and tcod.map_is_in_fov(fov_map, obj.x, obj.y)]
+
+    names = ', '.join(names) # Join the names, separated by commas
+    return names.capitalize()
+
+
 def handle_keys():
     global fov_recompute
     global game_state
+    global key
 
-    key = get_key_event(TURN_BASED)
+    #key = get_key_event(TURN_BASED)
 
     if key.vk == tcod.KEY_ENTER and key.lalt:
         # Alt+Enter: toggle full screen
@@ -485,16 +506,16 @@ def handle_keys():
 
     if game_state == 'playing':
         # movement keys
-        if tcod.console_is_key_pressed(tcod.KEY_UP):
+        if key.vk == tcod.KEY_UP:
             player_move_or_attack(0, -1)
 
-        elif tcod.console_is_key_pressed(tcod.KEY_DOWN):
+        elif key.vk == tcod.KEY_DOWN:
             player_move_or_attack(0, 1)
 
-        elif tcod.console_is_key_pressed(tcod.KEY_LEFT):
+        elif key.vk == tcod.KEY_LEFT:
             player_move_or_attack(-1, 0)
 
-        elif tcod.console_is_key_pressed(tcod.KEY_RIGHT):
+        elif key.vk == tcod.KEY_RIGHT:
             player_move_or_attack(1, 0)
 
         else:
@@ -545,7 +566,7 @@ def main():
     add_message('Welcome stranger. Get ready to kick some imperialist butt!', tcod.grey)
 
     while not tcod.console_is_window_closed() and not exit_game:
-        tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS|tcod.EVENT_MOUSE, key, mouse)
+        tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS | tcod.EVENT_MOUSE, key, mouse)
         render_all()
 
         tcod.console_flush()
