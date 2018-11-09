@@ -7,8 +7,13 @@ SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 LIMIT_FPS = 20
 
+# Sizes and coordinates relevant to the GUI
+BAR_WIDTH = 20
+PANEL_HEIGHT = 7
+PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
+
 MAP_WIDTH = 80
-MAP_HEIGHT = 45
+MAP_HEIGHT = 43
 ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
@@ -23,7 +28,9 @@ TORCH_RADIUS = 10
 
 MAX_ROOM_MONSTERS = 3
 
-con = tcod.console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
+con = tcod.console_new(MAP_WIDTH, MAP_HEIGHT)
+panel = tcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+
 colour_dark_wall = tcod.Color(0, 30, 0)
 colour_dark_ground = tcod.Color(20, 60, 20)
 colour_light_wall = tcod.Color(130, 110, 50)
@@ -324,6 +331,25 @@ def create_v_tunnel(y1, y2, x):
         map[x][y].block_sight = False
 
 
+def render_bar(x, y, total_width, name, value, maximum, bar_colour, back_colour):
+    # Render a bar (HP, exp., etc). First calculate the width of the bar
+    bar_width = int(float(value) / maximum * total_width)
+
+    # Render the background first
+    tcod.console_set_default_background(panel, back_colour)
+    tcod.console_rect(panel, x, y, total_width, 1, False, tcod.BKGND_SCREEN)
+
+    # Now render the bar on top
+    tcod.console_set_default_background(panel, bar_colour)
+    if bar_width > 0:
+        tcod.console_rect(panel, x, y, bar_width, 1, False, tcod.BKGND_SCREEN)
+
+    # Finally centre text with the values
+    tcod.console_set_default_foreground(panel, tcod.white)
+    tcod.console_print_ex(panel, x + total_width // 2, y, tcod.BKGND_NONE, tcod.CENTER,
+                          name + ': ' + str(value) + '/' + str(maximum))
+
+
 def render_all():
     global fov_map, colour_dark_wall, colour_light_wall
     global colour_dark_ground, colour_light_ground
@@ -372,9 +398,15 @@ def render_all():
             object.draw()
     player.draw()
 
+    # Prepare to render the GUI panel
+    tcod.console_set_default_background(panel, tcod.black)
+    tcod.console_clear(panel)
+
     # Show the player's stats
-    tcod.console_set_default_foreground(con, tcod.white)
-    tcod.console_print_ex(con, 1, SCREEN_HEIGHT - 2, tcod.BKGND_NONE, tcod.LEFT, 'HP: ' + str(player.fighter.hp) + '/' + str(player.fighter.max_hp))
+    render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp, tcod.light_red, tcod.darker_red)
+
+    # Blit the contents of panel to the root console
+    tcod.console_blit(panel, 0, 0, SCREEN_WIDTH, PANEL_HEIGHT, 0, 0, PANEL_Y)
 
     # Blit the contents of con to the root console
     tcod.console_blit(con, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0)
@@ -499,7 +531,6 @@ def main():
             for object in objects:
                 if object.ai:
                     object.ai.take_turn()
-
 
 
 main()
