@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import libtcodpy as tcod
 import math
+import textwrap
 
 FULLSCREEN = False
 SCREEN_WIDTH = 80
@@ -11,6 +12,10 @@ LIMIT_FPS = 20
 BAR_WIDTH = 20
 PANEL_HEIGHT = 7
 PANEL_Y = SCREEN_HEIGHT - PANEL_HEIGHT
+
+MSG_X = BAR_WIDTH + 2
+MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
+MSG_HEIGHT = PANEL_HEIGHT - 1
 
 MAP_WIDTH = 80
 MAP_HEIGHT = 43
@@ -30,6 +35,8 @@ MAX_ROOM_MONSTERS = 3
 
 con = tcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 panel = tcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
+mouse = tcod.Mouse()
+key = tcod.Key()
 
 colour_dark_wall = tcod.Color(0, 30, 0)
 colour_dark_ground = tcod.Color(20, 60, 20)
@@ -62,10 +69,10 @@ class Fighter:
 
         if damage > 0:
             # Make the target take some damage
-            print(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.')
+            add_message(self.owner.name.capitalize() + ' attacks ' + target.name + ' for ' + str(damage) + ' hit points.', tcod.grey)
             target.fighter.take_damage(damage)
         else:
-            print(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect.')
+            add_message(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect.', tcod.grey)
 
 
 class BasicMonster:
@@ -177,7 +184,7 @@ class Object:
 def player_death(player):
     # The game ended
     global game_state
-    print('You died.')
+    add_message('You died.', tcod.red)
     game_state = 'dead'
 
     # For added effect, transform player into corpse
@@ -187,7 +194,7 @@ def player_death(player):
 
 def monster_death(monster):
     # Create monster corpse, doesn't block, can't be attacked, doesn't move
-    print(monster.name.capitalize() + ' dies screaming.')
+    add_message(monster.name.capitalize() + ' dies screaming.', tcod.grey)
     monster.char = '%'
     monster.colour = tcod.dark_red
     monster.blocks = False
@@ -402,6 +409,13 @@ def render_all():
     tcod.console_set_default_background(panel, tcod.black)
     tcod.console_clear(panel)
 
+    # Print the game messages, one line at a time
+    y = 1
+    for(line, colour) in game_msgs:
+        tcod.console_set_default_foreground(panel, colour)
+        tcod.console_print_ex(panel, MSG_X, y, tcod.BKGND_NONE, tcod.LEFT, line)
+        y += 1
+
     # Show the player's stats
     render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp, tcod.light_red, tcod.darker_red)
 
@@ -441,6 +455,19 @@ def player_move_or_attack(dx, dy):
     else:
         player.move(dx, dy)
         fov_recompute = True
+
+
+def add_message(new_msg, colour=tcod.white):
+    # Split the message if necessary, among multiple lines
+    new_msg_lines = textwrap.wrap(new_msg, MSG_WIDTH)
+
+    for line in new_msg_lines:
+        # If buffer is full, remove the first line to make room for the new one
+        if len(game_msgs) == MSG_HEIGHT:
+            del game_msgs[0]
+
+        # Add the new line as a tuple, with the text and the colour
+        game_msgs.append((line, colour))
 
 
 def handle_keys():
@@ -506,6 +533,7 @@ objects = [player]
 
 
 game_state = 'playing'
+game_msgs = []
 
 
 def main():
@@ -513,7 +541,11 @@ def main():
     exit_game = False
     player_action = None
 
+    # Welcome message
+    add_message('Welcome stranger. Get ready to kick some imperialist butt!', tcod.grey)
+
     while not tcod.console_is_window_closed() and not exit_game:
+        tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS|tcod.EVENT_MOUSE, key, mouse)
         render_all()
 
         tcod.console_flush()
