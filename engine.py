@@ -32,6 +32,7 @@ FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
 MAX_ROOM_MONSTERS = 3
+MAX_ROOM_ITEMS = 2
 
 tcod.sys_set_fps(LIMIT_FPS)
 
@@ -44,6 +45,18 @@ colour_dark_wall = tcod.Color(0, 30, 0)
 colour_dark_ground = tcod.Color(20, 60, 20)
 colour_light_wall = tcod.Color(130, 110, 50)
 colour_light_ground = tcod.Color(200, 180, 50)
+
+
+class Item:
+    # An item tha can be picked up and used
+    def pick_up(self):
+        # Add to the player's inventory and remove from the map
+        if len(inventory) >= 26:
+            add_message('Your inventory is full, cannot pick up ' + self.owner.name + '.', tcod.yellow)
+        else:
+            inventory.append(self.owner)
+            objects.remove(self.owner)
+            add_message('A ' + self.owner.name + ' picked up.', tcod.green)
 
 
 class Fighter:
@@ -124,7 +137,7 @@ class Tile:
 class Object:
     # This is a generic object: the player, a monster, an item, the toilet...
     # It's always represented by a character on the screen
-    def __init__(self, x, y, char, name, colour, blocks=False, fighter=None, ai=None):
+    def __init__(self, x, y, char, name, colour, blocks=False, fighter=None, ai=None, item=None):
         self.name = name
         self.blocks = blocks
         self.x = x
@@ -134,6 +147,10 @@ class Object:
         self.fighter = fighter
         if self.fighter:
             self.fighter.owner = self
+
+        self.item = item
+        if self.item:
+            self.item.owner = self
 
         self.ai = ai
         if self.ai:
@@ -241,6 +258,23 @@ def place_objects(room):
                 monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
 
             objects.append(monster)
+
+    # Choose random number of items
+    num_items = tcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
+
+    for i in range(num_items):
+        # Choose random spot for this item
+        x = tcod.random_get_int(0, room.x1+1, room.x2-1)
+        y = tcod.random_get_int(0, room.y1+1, room.y2-1)
+
+        # Only place if tile is not blocked
+        if not is_blocked(x, y):
+            # Create a healing potion
+            item_component = Item()
+            item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component)
+
+            objects.append(item)
+            item.send_to_back() # Items appear below other objects
 
 
 def create_room(room):
@@ -519,6 +553,16 @@ def handle_keys():
             player_move_or_attack(1, 0)
 
         else:
+            # Test for other keys
+            key_char = chr(key.c)
+
+            if key_char == ',':
+                # Pick up an item
+                for object in objects: # Look for item in the player's tile
+                    if object.x == player.x and object.y == player.y and object.item:
+                        object.item.pick_up()
+                        break
+
             return 'didnt-take-turn'
 
 
@@ -551,6 +595,8 @@ def initialize_game():
 fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
 player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
 objects = [player]
+
+inventory = []
 
 
 game_state = 'playing'
