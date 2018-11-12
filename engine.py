@@ -36,6 +36,8 @@ TORCH_RADIUS = 10
 MAX_ROOM_MONSTERS = 3
 MAX_ROOM_ITEMS = 2
 
+HEAL_AMOUNT = 4
+
 tcod.sys_set_fps(LIMIT_FPS)
 
 con = tcod.console_new(MAP_WIDTH, MAP_HEIGHT)
@@ -50,7 +52,10 @@ colour_light_ground = tcod.Color(200, 180, 50)
 
 
 class Item:
-    # An item tha can be picked up and used
+    # An item that can be picked up and used
+    def __init__(self, use_function=None):
+        self.use_function = use_function
+
     def pick_up(self):
         # Add to the player's inventory and remove from the map
         if len(inventory) >= 26:
@@ -59,6 +64,14 @@ class Item:
             inventory.append(self.owner)
             objects.remove(self.owner)
             add_message('A ' + self.owner.name + ' picked up.', tcod.green)
+
+    def use(self):
+        # Just call the "use_function" if it is defined
+        if self.use_function is None:
+            add_message('The ' + self.owner.name + ' cannot be used.')
+        else:
+            if self.use_function() != 'cancelled':
+                inventory.remove(self.owner) # destroy after use, unless it was cancelled for some reason
 
 
 class Fighter:
@@ -90,6 +103,12 @@ class Fighter:
             target.fighter.take_damage(damage)
         else:
             add_message(self.owner.name.capitalize() + ' attacks ' + target.name + ' but it has no effect.', tcod.grey)
+
+    def heal(self, amount):
+        # Heal by the given amount
+        self.hp += amount
+        if self.hp > self.max_hp:
+            self.hp = self.max_hp
 
 
 class BasicMonster:
@@ -202,6 +221,16 @@ class Object:
             tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
 
 
+def cast_heal():
+    # Heal the player
+    if player.fighter.hp == player.fighter.max_hp:
+        add_message('You are already at full health', tcod.white)
+        return 'cancelled'
+
+    add_message('Your wounds start to feel better!', tcod.light_violet)
+    player.fighter.heal(HEAL_AMOUNT)
+
+
 def player_death(player):
     # The game ended
     global game_state
@@ -272,7 +301,7 @@ def place_objects(room):
         # Only place if tile is not blocked
         if not is_blocked(x, y):
             # Create a healing potion
-            item_component = Item()
+            item_component = Item(use_function=cast_heal)
             item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component)
 
             objects.append(item)
@@ -385,6 +414,10 @@ def inventory_menu(header):
 
     index = menu(header, options, INVENTORY_WIDTH)
 
+    # if an item was chosen, return it
+    if index is None or len(inventory) == 0: return None
+    return inventory[index].item
+
 
 def menu(header, options, width):
     if len(options) > 26:
@@ -417,6 +450,11 @@ def menu(header, options, width):
 
     tcod.console_flush()
     key = tcod.console_wait_for_keypress(True)
+
+    # Convert the ASCII code to an index; if it corresponds to an option, return it
+    index = key.c - ord('a')
+    if index >= 0 and index < len(options): return index
+    return None
 
 
 def render_bar(x, y, total_width, name, value, maximum, bar_colour, back_colour):
@@ -610,7 +648,9 @@ def handle_keys():
 
             if key_char == 'i':
                 # Show the inventory
-                inventory_menu('Press the key next to an item to use it, of any other key to cancel.\n')
+                chosen_item = inventory_menu('Press the key next to an item to use it, of any other key to cancel.\n')
+                if chosen_item is not None:
+                    chosen_item.use()
 
             return 'didnt-take-turn'
 
