@@ -41,6 +41,8 @@ LIGHTNING_RANGE = 5
 LIGHTNING_DAMAGE = 20
 CONFUSE_NUM_TURNS = 10
 CONFUSE_RANGE = 10
+FIREBALL_RADIUS = 3
+FIREBALL_DAMAGE = 12
 
 tcod.sys_set_fps(LIMIT_FPS)
 
@@ -222,6 +224,10 @@ class Object:
         dy = other.y - self.y
         return math.sqrt(dx ** 2 + dy ** 2)
 
+    def distance(self, x, y):
+        # Return the distance to some coordinates
+        return math.sqrt((x - self.x) ** 2 + (y - self.y) ** 2)
+
     def move(self, dx, dy):
         # move by the given amount, if the destination is not blocked
         if not is_blocked(self.x + dx, self.y + dy):
@@ -242,6 +248,26 @@ class Object:
             tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
 
 
+def target_tile(max_range=None):
+    # Return the position of a tile left-clicked in player's FOV optionally in range, or None,None if right-clicked
+    global key, mouse
+    global fov_recompute, fov_map
+    while True:
+        # Render the screen, this erases the inventory and shows the names of objects under the mouse
+        tcod.console_flush()
+        tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS|tcod.EVENT_MOUSE, key, mouse)
+        render_all()
+
+        (x, y) = (mouse.cx, mouse.cy)
+
+        if (mouse.lbutton_pressed and tcod.map_is_in_fov(fov_map, x , y) and
+                (max_range is None or player.distance(x, y) <= max_range)):
+            return(x, y)
+
+        if mouse.rbutton_pressed or key.vk == tcod.KEY_ESCAPE:
+            return (None, None) # Cancel if the player right-clicked or pressed Esc
+
+
 def closest_monster(max_range):
     # find closest enemy up to a max range and inside player's FOV
     closest_enemy = None
@@ -255,6 +281,19 @@ def closest_monster(max_range):
                 closest_enemy = object
                 closest_dist = dist
     return closest_enemy
+
+
+def cast_fireball():
+        # Ask the player for a target tile to throw a fireball at
+        add_message('Left-click a target tile for the fireball, or right-click to cancel.', tcod.light_cyan)
+        (x, y) = target_tile()
+        if x is None: return 'cancelled'
+        add_message('The fireball explodes, burning everything within ' + str(FIREBALL_RADIUS) + ' tiles!', tcod.orange)
+
+        for obj in objects: # Damage every fighter in range, including the player
+            if obj.distance(x, y) <= FIREBALL_RADIUS and obj.fighter:
+                add_message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.', tcod.orange)
+                obj.fighter.take_damage(FIREBALL_DAMAGE)
 
 
 def cast_confuse():
@@ -370,10 +409,15 @@ def place_objects(room):
                 # Create a healing potion (70% chance)
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component)
-            elif dice < 70+15:
+            elif dice < 70+10:
                 item_component = Item(use_function=cast_lightning)
 
                 item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component)
+            elif dice < 70+10+10:
+                # Create a fireball scroll (10% chance)
+                item_component = Item(use_function=cast_fireball())
+
+                item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component)
             else:
                 # Create a scroll of confusion
                 item_component = Item(use_function=cast_confuse)
