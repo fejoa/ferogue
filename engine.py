@@ -79,6 +79,15 @@ class Item:
             if self.use_function() != 'cancelled':
                 inventory.remove(self.owner) # destroy after use, unless it was cancelled for some reason
 
+    def drop(self):
+        # Add to the map and remove from the player's inventory
+        # Also, Place it at the player's coordinates
+        objects.append(self.owner)
+        inventory.remove(self.owner)
+        self.owner.x = player.x
+        self.owner.y = player.y
+        add_message('You drop a ' + self.owner.name + '.' + tcod.yellow)
+
 
 class Fighter:
     # Combat-related properties and methods (monster, player, NPC)
@@ -297,16 +306,16 @@ def closest_monster(max_range):
 
 
 def cast_fireball():
-        # Ask the player for a target tile to throw a fireball at
-        add_message('Left-click a target tile for the fireball, or right-click to cancel.', tcod.light_cyan)
-        (x, y) = target_tile()
-        if x is None: return 'cancelled'
-        add_message('The fireball explodes, burning everything within ' + str(FIREBALL_RADIUS) + ' tiles!', tcod.orange)
+    # Ask the player for a target tile to throw a fireball at
+    add_message('Left-click a target tile for the fireball, or right-click to cancel.', tcod.light_cyan)
+    (x, y) = target_tile()
+    if x is None: return 'cancelled'
+    add_message('The fireball explodes, burning everything within ' + str(FIREBALL_RADIUS) + ' tiles!', tcod.orange)
 
-        for obj in objects: # Damage every fighter in range, including the player
-            if obj.distance(x, y) <= FIREBALL_RADIUS and obj.fighter:
-                add_message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.', tcod.orange)
-                obj.fighter.take_damage(FIREBALL_DAMAGE)
+    for obj in objects: # Damage every fighter in range, including the player
+        if obj.distance(x, y) <= FIREBALL_RADIUS and obj.fighter:
+            add_message('The ' + obj.name + ' gets burned for ' + str(FIREBALL_DAMAGE) + ' hit points.', tcod.orange)
+            obj.fighter.take_damage(FIREBALL_DAMAGE)
 
 
 def cast_confuse():
@@ -782,6 +791,12 @@ def handle_keys():
                 chosen_item = inventory_menu('Press the key next to an item to use it, of any other key to cancel.\n')
                 if chosen_item is not None:
                     chosen_item.use()
+
+            if key_char == 'd':
+                # Show the inventory; if an item is selected, drop it
+                chosen_item = inventory_menu('Press the key next to an item to drop it, or any other to cancel.\n')
+                if chosen_item is not None:
+                    chosen_item.drop()
 
             return 'didnt-take-turn'
 
