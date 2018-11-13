@@ -37,6 +37,8 @@ MAX_ROOM_MONSTERS = 3
 MAX_ROOM_ITEMS = 2
 
 HEAL_AMOUNT = 4
+LIGHTNING_RANGE = 5
+LIGHTNING_DAMAGE = 20
 
 tcod.sys_set_fps(LIMIT_FPS)
 
@@ -221,6 +223,34 @@ class Object:
             tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
 
 
+def closest_monster(max_range):
+    # find closest enemy up to a max range and inside player's FOV
+    closest_enemy = None
+    closest_dist = max_range + 1 # Start with slightly more than max range
+
+    for object in objects:
+        if object.fighter and not object == player and tcod.map_is_in_fov(fov_map, object.x, object.y):
+            # Calculate distance between this object and the player
+            dist = player.distance_to(object)
+            if dist < closest_dist: # It's closer, so remember it
+                closest_enemy = object
+                closest_dist = dist
+    return closest_enemy
+
+
+def cast_lightning():
+    # Find closest enemy inside a max range and damage it
+    monster = closest_monster(LIGHTNING_RANGE)
+    if monster is None: # No enemy found within max range
+        add_message("No enemy is close enough to strike.", tcod.yellow)
+        return 'cancelled'
+
+    # Zap it
+    add_message('A lightning bolt strikes the ' + monster.name + ' with a loud thunder! The damage is '
+                + str(LIGHTNING_DAMAGE) + ' hit points.', tcod.light_blue)
+    monster.fighter.take_damage(LIGHTNING_DAMAGE)
+
+
 def cast_heal():
     # Heal the player
     if player.fighter.hp == player.fighter.max_hp:
@@ -300,9 +330,15 @@ def place_objects(room):
 
         # Only place if tile is not blocked
         if not is_blocked(x, y):
-            # Create a healing potion
-            item_component = Item(use_function=cast_heal)
-            item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component)
+            dice = tcod.random_get_int(0, 0, 100)
+            if dice < 70:
+                # Create a healing potion (70% chance)
+                item_component = Item(use_function=cast_heal)
+                item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component)
+            else:
+                item_component = Item(use_function=cast_lightning)
+
+                item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component)
 
             objects.append(item)
             item.send_to_back() # Items appear below other objects
