@@ -39,6 +39,8 @@ MAX_ROOM_ITEMS = 2
 HEAL_AMOUNT = 4
 LIGHTNING_RANGE = 5
 LIGHTNING_DAMAGE = 20
+CONFUSE_NUM_TURNS = 10
+CONFUSE_RANGE = 10
 
 tcod.sys_set_fps(LIMIT_FPS)
 
@@ -125,6 +127,23 @@ class BasicMonster:
             # If close enough, attack if player is still alive
             elif player.fighter.hp > 0:
                 monster.fighter.attack(player)
+
+
+class ConfusedMonster:
+    # AI for a temporarily confused monster
+    def __init__(self, old_ai, num_turns=CONFUSE_NUM_TURNS):
+        self.old_ai = old_ai
+        self.num_turns = num_turns
+
+    def take_turn(self):
+        if self.num_turns > 0:
+            # Move randomly
+            self.owner.move(tcod.random_get_int(0, -1, 1), tcod.random_get_int(0, -1, 1))
+            self.num_turns -= 1
+
+        else: # Restore the previous AI and delete this AI
+            self.owner.ai = self.old_ai
+            add_message('The ' + self.owner.name + ' is no longer confused!', tcod.orange)
 
 
 class Rect:
@@ -238,6 +257,22 @@ def closest_monster(max_range):
     return closest_enemy
 
 
+def cast_confuse():
+    #Find closest enemy in range and confuse it
+    monster = closest_monster(CONFUSE_RANGE)
+
+    if monster is None:
+        add_message('No enemy is close enough to confuse.', tcod.orange)
+        return 'cancelled'
+
+    # Replace the monster's AI with confused AI
+    old_ai = monster.ai
+    monster.ai = ConfusedMonster(old_ai)
+    monster.ai.owner = monster # tell the ner component who owns it
+    add_message('The eyes of the ' + monster.name + ' look vacant. He starts to shamble around.', tcod.light_green)
+
+
+
 def cast_lightning():
     # Find closest enemy inside a max range and damage it
     monster = closest_monster(LIGHTNING_RANGE)
@@ -335,10 +370,15 @@ def place_objects(room):
                 # Create a healing potion (70% chance)
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component)
-            else:
+            elif dice < 70+15:
                 item_component = Item(use_function=cast_lightning)
 
                 item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component)
+            else:
+                # Create a scroll of confusion
+                item_component = Item(use_function=cast_confuse)
+
+                item = Object(x, y, '#', 'scroll of confusion', tcod.light_yellow, item=item_component)
 
             objects.append(item)
             item.send_to_back() # Items appear below other objects
