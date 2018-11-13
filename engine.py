@@ -435,7 +435,7 @@ def place_objects(room):
                 item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component)
             elif dice < 70+10+10:
                 # Create a fireball scroll (10% chance)
-                item_component = Item(use_function=cast_fireball())
+                item_component = Item(use_function=cast_fireball)
 
                 item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component)
             else:
