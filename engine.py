@@ -311,10 +311,10 @@ def place_objects(room):
                 # 80% chance to create fascist
                 fighter_component = Fighter(hp=10, defense=0, power=3, death_function=monster_death)
                 ai_component = BasicMonster()
-                monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True, fighter=fighter_component,ai=ai_component)
+                monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
             else:
                 # 20% chance to create bourgeois
-                fighter_component = Fighter(hp=16, defense=1, power=4)
+                fighter_component = Fighter(hp=16, defense=1, power=4, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
 
