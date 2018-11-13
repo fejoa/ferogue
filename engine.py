@@ -248,6 +248,19 @@ class Object:
             tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
 
 
+def target_monster(max_range=None):
+    # Returns a clicked monster inside FOV up to a range, or None if right-clicked
+    while True:
+        (x, y) = target_tile(max_range)
+        if x is None: # player cancelled
+            return None
+
+        # Return the first-clicked monster, otherwise continue looping
+        for obj in objects:
+            if obj.x == x and obj.y == y and obj.fighter and obj != player:
+                return obj
+
+
 def target_tile(max_range=None):
     # Return the position of a tile left-clicked in player's FOV optionally in range, or None,None if right-clicked
     global key, mouse
@@ -297,12 +310,10 @@ def cast_fireball():
 
 
 def cast_confuse():
-    #Find closest enemy in range and confuse it
-    monster = closest_monster(CONFUSE_RANGE)
-
-    if monster is None:
-        add_message('No enemy is close enough to confuse.', tcod.orange)
-        return 'cancelled'
+    # Ask the player for a target to confuse
+    add_message('Left-click an enemy to confuse is, or right-click to cancel.', tcod.light_cyan)
+    monster = target_monster(CONFUSE_RANGE)
+    if monster is None: return 'cancelled'
 
     # Replace the monster's AI with confused AI
     old_ai = monster.ai
