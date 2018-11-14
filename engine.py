@@ -566,6 +566,8 @@ def menu(header, options, width):
 
     # Calculate total height for the header (after auto-wrap) and one line per option
     header_height = tcod.console_get_height_rect(con, 0, 0, width, SCREEN_HEIGHT, header)
+    if header == '':
+        header_height = 0
     height = len(options) + header_height
 
     # Create an off-screen console that represents the menu's window
@@ -591,6 +593,9 @@ def menu(header, options, width):
 
     tcod.console_flush()
     key = tcod.console_wait_for_keypress(True)
+
+    if key.vk == tcod.KEY_ENTER and key.lalt:  # (special case) Alt+Enter: toggle fullscreen
+        tcod.console_set_fullscreen(not tcod.console_is_fullscreen())
 
     # Convert the ASCII code to an index; if it corresponds to an option, return it
     index = key.c - ord('a')
@@ -812,6 +817,8 @@ def initialize_fov():
         for x in range(MAP_WIDTH):
             tcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
 
+    tcod.console_clear(con)  # Unexplored areas start black (which is the default background color)
+
 
 def new_game():
     global player, inventory, game_msgs, game_state
@@ -883,6 +890,11 @@ def main_menu():
     while not tcod.console_is_window_closed():
         # Show the background image, at twice the regular console resolution
         tcod.image_blit_2x(img, 0, 0, 0)
+
+        # Show the game's title and some credits
+        tcod.console_set_default_foreground(0, tcod.light_yellow)
+        tcod.console_print_ex(0, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 4, tcod.BKGND_NONE, tcod.CENTER, 'FASCIST EXTERMINATORS')
+        tcod.console_print_ex(0, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 2, tcod.BKGND_NONE, tcod.CENTER, 'By fejoa')
 
         # Show options and wait for the player's choise
         choice = menu('', ['Play a new game', 'Continue last game', 'Quit'], 24)
