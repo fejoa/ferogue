@@ -877,10 +877,26 @@ def play_game():
                     object.ai.take_turn()
 
 
+def main_menu():
+    img = tcod.image_load('menu_background.png')
+
+    while not tcod.console_is_window_closed():
+        # Show the background image, at twice the regular console resolution
+        tcod.image_blit_2x(img, 0, 0, 0)
+
+        # Show options and wait for the player's choise
+        choice = menu('', ['Play a new game', 'Continue last game', 'Quit'], 24)
+
+        if choice == 0: # New game
+            new_game()
+            play_game()
+        elif choice == 2: # Quit
+            break
+
+
 def main():
     initialize_game()
-    new_game()
-    play_game()
+    main_menu()
 
 
 main()
