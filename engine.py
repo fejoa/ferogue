@@ -48,8 +48,6 @@ tcod.sys_set_fps(LIMIT_FPS)
 
 con = tcod.console_new(MAP_WIDTH, MAP_HEIGHT)
 panel = tcod.console_new(SCREEN_WIDTH, PANEL_HEIGHT)
-mouse = tcod.Mouse()
-key = tcod.Key()
 
 colour_dark_wall = tcod.Color(0, 30, 0)
 colour_dark_ground = tcod.Color(20, 60, 20)
@@ -383,7 +381,7 @@ def is_blocked(x, y):
     if map[x][y].blocked:
         return True
 
-    #now check for any blocking objects
+    # Now check for any blocking objects
     for object in objects:
         if object.blocks and object.x == x and object.y == y:
             return True
@@ -458,7 +456,10 @@ def create_room(room):
 
 
 def make_map():
-    global map, player
+    global map, objects
+
+    # The list of objects with just the player
+    objects = [player]
 
     # Fill map with "blocked" tiles
     map = [
@@ -801,6 +802,36 @@ def handle_keys():
             return 'didnt-take-turn'
 
 
+def initialize_fov():
+    global fov_recompute, fov_map
+    fov_recompute = True
+
+    # Create the FOV map, according to the generated map
+    fov_map = tcod.map_new(MAP_WIDTH, MAP_HEIGHT)
+    for y in range(MAP_HEIGHT):
+        for x in range(MAP_WIDTH):
+            tcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+
+
+def new_game():
+    global player, inventory, game_msgs, game_state
+
+    # Create object representing the player
+    fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
+    player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
+    inventory = []
+
+    # Generate map
+    make_map()
+    initialize_fov()
+
+    game_state = 'playing'
+    game_msgs = []
+
+    # Welcome message
+    add_message('Welcome stranger. Get ready to kick some imperialist butt!', tcod.grey)
+
+
 def initialize_game():
     global fov_recompute, fov_map
 
@@ -816,36 +847,15 @@ def initialize_game():
     # set FPS
     tcod.sys_set_fps(LIMIT_FPS)
 
-    make_map()
 
-    # Create the FOV map, according to the generated map
-    fov_map = tcod.map_new(MAP_WIDTH, MAP_HEIGHT)
-    for y in range(MAP_HEIGHT):
-        for x in range(MAP_WIDTH):
-            tcod.map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+def play_game():
+    global key, mouse
 
-    fov_recompute = True
-
-
-fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
-player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
-objects = [player]
-
-inventory = []
-
-
-game_state = 'playing'
-game_msgs = []
-
-
-def main():
-    initialize_game()
     exit_game = False
     player_action = None
 
-    # Welcome message
-    add_message('Welcome stranger. Get ready to kick some imperialist butt!', tcod.grey)
-
+    mouse = tcod.Mouse()
+    key = tcod.Key()
     while not tcod.console_is_window_closed() and not exit_game:
         tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS | tcod.EVENT_MOUSE, key, mouse)
         render_all()
@@ -865,6 +875,12 @@ def main():
             for object in objects:
                 if object.ai:
                     object.ai.take_turn()
+
+
+def main():
+    initialize_game()
+    new_game()
+    play_game()
 
 
 main()
