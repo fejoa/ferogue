@@ -561,6 +561,7 @@ def inventory_menu(header):
 
 
 def menu(header, options, width):
+    global key, mouse
     if len(options) > 26:
         raise ValueError('Cannot have a menu with more than 26 options.')
 
@@ -591,16 +592,33 @@ def menu(header, options, width):
     y = SCREEN_HEIGHT//2 - height//2
     tcod.console_blit(window, 0, 0, width, height, 0, x, y, 1.0, 0.7)
 
-    tcod.console_flush()
-    key = tcod.console_wait_for_keypress(True)
+    # Compute x and y offsets to convert console position to menu position
+    x_offset = x # x is the Left edge of the menu
+    y_offset = y + header_height # Subtract the height of the header from the top edge of the menu
 
-    if key.vk == tcod.KEY_ENTER and key.lalt:  # (special case) Alt+Enter: toggle fullscreen
-        tcod.console_set_fullscreen(not tcod.console_is_fullscreen())
+    while True:
+        # Present the root console to the player and check for input
+        tcod.console_flush()
+        tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS|tcod.EVENT_MOUSE, key, mouse)
 
-    # Convert the ASCII code to an index; if it corresponds to an option, return it
-    index = key.c - ord('a')
-    if index >= 0 and index < len(options): return index
-    return None
+        if mouse.lbutton_pressed:
+            (menu_x, menu_y) = (mouse.cx - x_offset, mouse.cy - y_offset)
+            # Check if click is within the menu and a choice
+            if menu_x >= 0 and menu_x < width and menu_y <= 0 and menu_y < height - header_height:
+                return menu_y
+
+        if mouse.rbutton_pressed or key.vk == tcod.KEY_ESCAPE:
+            return None # cancel if the player right-clicked or pressed Esc
+
+        if key.vk == tcod.KEY_ENTER and key.lalt:
+            # (special case) Alt+Enter: toggle full-screen
+            tcod.console_set_fullscreen(not tcod.console_is_fullscreen())
+
+        # Convert the ASCII code to an index; if it corresponds to an option, return it
+        index = key.c - ord('a')
+        if index >= 0 and index < len(options): return index
+        # If they pressed a letter that is not an option, return none
+        if index >= 0 and index <= 26: return None
 
 
 def render_bar(x, y, total_width, name, value, maximum, bar_colour, back_colour):
@@ -861,8 +879,8 @@ def play_game():
     exit_game = False
     player_action = None
 
-    mouse = tcod.Mouse()
-    key = tcod.Key()
+    #mouse = tcod.Mouse()
+    #key = tcod.Key()
     while not tcod.console_is_window_closed() and not exit_game:
         tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS | tcod.EVENT_MOUSE, key, mouse)
         render_all()
@@ -906,8 +924,14 @@ def main_menu():
             break
 
 
+mouse = tcod.Mouse()
+key = tcod.Key()
+
+
 def main():
+
     initialize_game()
+
     main_menu()
 
 
