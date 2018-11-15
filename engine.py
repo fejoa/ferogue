@@ -2,6 +2,7 @@
 import libtcodpy as tcod
 import math
 import textwrap
+import shelve
 
 FULLSCREEN = False
 SCREEN_WIDTH = 80
@@ -253,6 +254,34 @@ class Object:
             tcod.console_put_char_ex(con, self.x, self.y, '.', tcod.white, colour_dark_ground)
         else:
             tcod.console_put_char(con, self.x, self.y, ' ', tcod.BKGND_NONE)
+
+
+def save_game():
+    # Open a newly empty shelve (possibly overwriting an old one) to write the game data
+    file = shelve.open('savegame', 'n')
+    file['map'] = map
+    file['objects'] = objects
+    file['player_index'] = objects.index(player) # Index of player in objects list
+    file['inventory'] = inventory
+    file['game_msgs'] = game_msgs
+    file['game_state'] = game_state
+    file.close()
+
+
+def load_game():
+    # Open the previously saved shelve and load the game data
+    global map, objects, player, inventory, game_msgs, game_state
+
+    file = shelve.open('savegame', 'r')
+    map = file['map']
+    objects = file['objects']
+    player = objects[file['player_index']] # Get index of player in objects list and access it
+    inventory = file['inventory']
+    game_msgs = file['game_msgs']
+    game_state = file['game_state']
+    file.close()
+
+    initialize_fov()
 
 
 def target_monster(max_range=None):
@@ -894,12 +923,17 @@ def play_game():
         # handle keys and exit game if needed
         player_action = handle_keys()
         if player_action == 'exit':
+            save_game()
             break
 
         if game_state == 'playing' and player_action != 'didnt-take-turn':
             for object in objects:
                 if object.ai:
                     object.ai.take_turn()
+
+
+def msgbox(text, width=50):
+    menu(text, [], width) # Use menu as a sort of 'message box'
 
 
 def main_menu():
@@ -919,6 +953,13 @@ def main_menu():
 
         if choice == 0: # New game
             new_game()
+            play_game()
+        elif choice == 1: # Load last game
+            try:
+                load_game()
+            except:
+                msgbox('\n No saved game to load.\n', 24)
+                continue
             play_game()
         elif choice == 2: # Quit
             break
