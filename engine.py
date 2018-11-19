@@ -189,7 +189,8 @@ class Tile:
 class Object:
     # This is a generic object: the player, a monster, an item, the toilet...
     # It's always represented by a character on the screen
-    def __init__(self, x, y, char, name, colour, blocks=False, fighter=None, ai=None, item=None):
+    def __init__(self, x, y, char, name, colour, blocks=False, always_visible=False, fighter=None, ai=None, item=None):
+        self.always_visible = always_visible
         self.name = name
         self.blocks = blocks
         self.x = x
@@ -243,7 +244,7 @@ class Object:
             self.y += dy
 
     def draw(self):
-        if tcod.map_is_in_fov(fov_map, self.x, self.y):
+        if (tcod.map_is_in_fov(fov_map, self.x, self.y) or (self.always_visible and map[self.x][self.y].explored)):
             # set the colour and then draw the character that represents this oject at its position
             tcod.console_set_default_foreground(con, self.colour)
             tcod.console_put_char(con, self.x, self.y, self.char, tcod.BKGND_NONE)
@@ -265,12 +266,14 @@ def save_game():
     file['inventory'] = inventory
     file['game_msgs'] = game_msgs
     file['game_state'] = game_state
+    file['stairs_index'] = objects.index(stairs)
+    file['dungeon_leve'] = dungeon_level
     file.close()
 
 
 def load_game():
     # Open the previously saved shelve and load the game data
-    global map, objects, player, inventory, game_msgs, game_state
+    global map, objects, player, inventory, game_msgs, game_state, dungeon_level
 
     file = shelve.open('savegame', 'r')
     map = file['map']
@@ -279,8 +282,22 @@ def load_game():
     inventory = file['inventory']
     game_msgs = file['game_msgs']
     game_state = file['game_state']
+    stairs = objects[file['stairs_index']]
+    dungeon_level = file['dungeon_level']
     file.close()
 
+    initialize_fov()
+
+
+def next_level():
+    global dungeon_level
+    # Advance to the next level
+    add_message('You take a moment to rest, and recover some strength.', tcod.light_violet)
+    player.fighter.heal(player.fighter.max_hp / 2) # Heal the player by 50%
+
+    add_message('You descend the stairs.')
+    dungeon_level += 1
+    make_map()
     initialize_fov()
 
 
@@ -455,21 +472,21 @@ def place_objects(room):
             if dice < 70:
                 # Create a healing potion (70% chance)
                 item_component = Item(use_function=cast_heal)
-                item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component)
+                item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component, always_visible=True)
             elif dice < 70+10:
                 item_component = Item(use_function=cast_lightning)
 
-                item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component)
+                item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component, always_visible=True)
             elif dice < 70+10+10:
                 # Create a fireball scroll (10% chance)
                 item_component = Item(use_function=cast_fireball)
 
-                item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component)
+                item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component, always_visible=True)
             else:
                 # Create a scroll of confusion
                 item_component = Item(use_function=cast_confuse)
 
-                item = Object(x, y, '#', 'scroll of confusion', tcod.light_yellow, item=item_component)
+                item = Object(x, y, '#', 'scroll of confusion', tcod.light_yellow, item=item_component, always_visible=True)
 
             objects.append(item)
             item.send_to_back() # Items appear below other objects
@@ -485,7 +502,7 @@ def create_room(room):
 
 
 def make_map():
-    global map, objects
+    global map, objects, stairs
 
     # The list of objects with just the player
     objects = [player]
@@ -556,8 +573,13 @@ def make_map():
             if SHOW_ROOM_NUMBERS and MAX_ROOMS <= 30:
                 # optional: print "room number" to see how the map drawing worked
                 #          we may have more than ten rooms, so print 'A' for the first room, 'B' for the next...
-                room_no = Object(new_x, new_y, chr(64 + num_rooms), 'room number', tcod.white)
+                room_no = Object(new_x, new_y, chr(64 + num_rooms), 'room number', tcod.white, always_visible=True)
                 objects.insert(0, room_no)  # draw early, so monsters are drawn on top
+
+    # Create staris at the centre of the last room
+    stairs = Object(new_x, new_y, '>', 'stairs', tcod.white, always_visible=True)
+    objects.append(stairs)
+    stairs.send_to_back() # so it's drawn below creatures
 
 
 def create_h_tunnel(x1, x2, y):
@@ -670,9 +692,9 @@ def render_bar(x, y, total_width, name, value, maximum, bar_colour, back_colour)
 
 
 def render_all():
-    global fov_map, colour_dark_wall, colour_light_wall
+    global colour_dark_wall, colour_light_wall
     global colour_dark_ground, colour_light_ground
-    global fov_recompute
+    global fov_map, fov_recompute, dungeon_level
 
     if fov_recompute:
         # Recompute FOV if needed (the player moved or something)
@@ -728,8 +750,9 @@ def render_all():
         tcod.console_print_ex(panel, MSG_X, y, tcod.BKGND_NONE, tcod.LEFT, line)
         y += 1
 
-    # Show the player's stats
+    # Show the player's stats and dungeon level
     render_bar(1, 1, BAR_WIDTH, 'HP', player.fighter.hp, player.fighter.max_hp, tcod.light_red, tcod.darker_red)
+    tcod.console_print_ex(panel, 1, 3, tcod.BKGND_NONE, tcod.LEFT, 'Dungeon level ' + str(dungeon_level))
 
     # Display the names of objects under the mouse
     tcod.console_set_default_foreground(panel, tcod.light_grey)
@@ -851,6 +874,11 @@ def handle_keys():
                 if chosen_item is not None:
                     chosen_item.drop()
 
+            if key.shift and key_char == '.':
+                # Go down the stairs, if the player is on them
+                if stairs.x == player.x and stairs.y == player.y:
+                    next_level()
+
             return 'didnt-take-turn'
 
 
@@ -868,7 +896,9 @@ def initialize_fov():
 
 
 def new_game():
-    global player, inventory, game_msgs, game_state
+    global player, inventory, game_msgs, game_state, dungeon_level
+
+    dungeon_level = 1
 
     # Create object representing the player
     fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
@@ -948,7 +978,7 @@ def main_menu():
         tcod.console_print_ex(0, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 4, tcod.BKGND_NONE, tcod.CENTER, 'FASCIST EXTERMINATORS')
         tcod.console_print_ex(0, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 2, tcod.BKGND_NONE, tcod.CENTER, 'By fejoa')
 
-        # Show options and wait for the player's choise
+        # Show options and wait for the player's choice
         choice = menu('', ['Play a new game', 'Continue last game', 'Quit'], 24)
 
         if choice == 0: # New game
