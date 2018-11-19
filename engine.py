@@ -318,7 +318,7 @@ def check_level_up():
         # it is, therefore level up
         player.fighter.xp += 1
         player.fighter.xp -= level_up_xp
-        add_message('Your battle skills grow stronger! You reach level ' + str('player.level' + '!', tcod.gold))
+        add_message('Your battle skills grow stronger! You reach level ' + str(player.level) + '!', tcod.gold)
 
         choice = None
         while choice == None: # keep asking until a choice is made
@@ -873,18 +873,25 @@ def handle_keys():
         return 'exit' # exit game
 
     if game_state == 'playing':
-        # movement keys
-        if key.vk == tcod.KEY_UP:
+        #movement keys
+        if key.vk == tcod.KEY_UP or key.vk == tcod.KEY_KP8:
             player_move_or_attack(0, -1)
-
-        elif key.vk == tcod.KEY_DOWN:
+        elif key.vk == tcod.KEY_DOWN or key.vk == tcod.KEY_KP2:
             player_move_or_attack(0, 1)
-
-        elif key.vk == tcod.KEY_LEFT:
+        elif key.vk == tcod.KEY_LEFT or key.vk == tcod.KEY_KP4:
             player_move_or_attack(-1, 0)
-
-        elif key.vk == tcod.KEY_RIGHT:
+        elif key.vk == tcod.KEY_RIGHT or key.vk == tcod.KEY_KP6:
             player_move_or_attack(1, 0)
+        elif key.vk == tcod.KEY_HOME or key.vk == tcod.KEY_KP7:
+            player_move_or_attack(-1, -1)
+        elif key.vk == tcod.KEY_PAGEUP or key.vk == tcod.KEY_KP9:
+            player_move_or_attack(1, -1)
+        elif key.vk == tcod.KEY_END or key.vk == tcod.KEY_KP1:
+            player_move_or_attack(-1, 1)
+        elif key.vk == tcod.KEY_PAGEDOWN or key.vk == tcod.KEY_KP3:
+            player_move_or_attack(1, 1)
+        elif key.vk == tcod.KEY_KP5:
+            pass  # Do nothing ie wait for the monster to come to you
 
         else:
             # Test for other keys
@@ -920,6 +927,9 @@ def handle_keys():
                 # Go down the stairs, if the player is on them
                 if stairs.x == player.x and stairs.y == player.y:
                     next_level()
+
+            if key_char == '.':
+                pass  # Do nothing ie wait for the monster to come to you
 
             return 'didnt-take-turn'
 
