@@ -916,7 +916,7 @@ def handle_keys():
                 if chosen_item is not None:
                     chosen_item.drop()
 
-            if key_char == 'c':
+            if key.shift and key_char == 'c':
                 # Show character info
                 level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
                 msgbox('Character information\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) +
@@ -929,7 +929,7 @@ def handle_keys():
                     next_level()
 
             if key_char == '.':
-                pass  # Do nothing ie wait for the monster to come to you
+                return  # Do nothing ie wait for the monster to come to you
 
             return 'didnt-take-turn'
 
