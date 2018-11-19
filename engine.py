@@ -18,6 +18,9 @@ MSG_X = BAR_WIDTH + 2
 MSG_WIDTH = SCREEN_WIDTH - BAR_WIDTH - 2
 MSG_HEIGHT = PANEL_HEIGHT - 1
 
+LEVEL_SCREEN_WIDTH = 40
+CHARACTER_SCREEN_WIDTH = 30
+
 INVENTORY_WIDTH = 50
 
 MAP_WIDTH = 80
@@ -44,6 +47,10 @@ CONFUSE_NUM_TURNS = 10
 CONFUSE_RANGE = 10
 FIREBALL_RADIUS = 3
 FIREBALL_DAMAGE = 12
+
+# Experience and level-ups
+LEVEL_UP_BASE = 200
+LEVEL_UP_FACTOR = 150
 
 tcod.sys_set_fps(LIMIT_FPS)
 
@@ -90,11 +97,12 @@ class Item:
 
 class Fighter:
     # Combat-related properties and methods (monster, player, NPC)
-    def __init__(self, hp, defense, power, death_function=None):
+    def __init__(self, hp, defense, power, xp, death_function=None):
         self.max_hp = hp
         self.hp = hp
         self.defense = defense
         self.power = power
+        self.xp = xp
         self.death_function = death_function
 
     def take_damage(self, damage):
@@ -106,6 +114,8 @@ class Fighter:
                 function = self.death_function
                 if function is not None:
                     function(self.owner)
+        if self.owner != player: # yield experience to the player
+            player.fighter.xp += self.xp
 
     def attack(self, target):
         # A simple formula for attack damage
@@ -301,6 +311,31 @@ def next_level():
     initialize_fov()
 
 
+def check_level_up():
+    # See if the player's experience is enough to level-up
+    level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
+    if player.fighter.xp >= level_up_xp:
+        # it is, therefore level up
+        player.fighter.xp += 1
+        player.fighter.xp -= level_up_xp
+        add_message('Your battle skills grow stronger! You reach level ' + str('player.level' + '!', tcod.gold))
+
+        choice = None
+        while choice == None: # keep asking until a choice is made
+            choice = menu('Level up! Choose a stat to raise:\n',
+                          ['Constitution (+10 HP, from ' + str(player.fighter.max_hp) + ')',
+                           'Strength (+1 attack, from ' +str(player.fighter.power)+ ')',
+                           'Agility (+1 defense, from ' + str(player.fighter.defense) + ')'], LEVEL_SCREEN_WIDTH)
+
+            if choice == 0:
+                player.fighter.max_hp += 10
+                player.fighter.hp += 10
+            elif choice == 1:
+                player.fighter.power += 1
+            elif choice == 2:
+                player.fighter.defense += 1
+
+
 def target_monster(max_range=None):
     # Returns a clicked monster inside FOV up to a range, or None if right-clicked
     while True:
@@ -412,7 +447,7 @@ def player_death(player):
 
 def monster_death(monster):
     # Create monster corpse, doesn't block, can't be attacked, doesn't move
-    add_message(monster.name.capitalize() + ' dies screaming.', tcod.grey)
+    add_message(monster.name.capitalize() + ' dies screaming. You gain ' + str(monster.fighter.xp) + ' experience points.', tcod.grey)
     monster.char = '%'
     monster.colour = tcod.dark_red
     monster.blocks = False
@@ -447,12 +482,12 @@ def place_objects(room):
         if not is_blocked(x, y):
             if tcod.random_get_int(0, 0, 100) < 80:
                 # 80% chance to create fascist
-                fighter_component = Fighter(hp=10, defense=0, power=3, death_function=monster_death)
+                fighter_component = Fighter(hp=10, defense=0, power=3, xp=35, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
             else:
                 # 20% chance to create bourgeois
-                fighter_component = Fighter(hp=16, defense=1, power=4, death_function=monster_death)
+                fighter_component = Fighter(hp=16, defense=1, power=4, xp=100, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
 
@@ -874,6 +909,13 @@ def handle_keys():
                 if chosen_item is not None:
                     chosen_item.drop()
 
+            if key_char == 'c':
+                # Show character info
+                level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
+                msgbox('Character information\n\nLevel: ' + str(player.level) + '\nExperience: ' + str(player.fighter.xp) +
+                       '\nNext level: ' + str(level_up_xp) + '\n\nMax HP: ' + str(player.fighter.max_hp) +
+                       '\nAttack: ' + str(player.fighter.power) + '\nDefense: ' + str(player.fighter.defense), CHARACTER_SCREEN_WIDTH)
+
             if key.shift and key_char == '.':
                 # Go down the stairs, if the player is on them
                 if stairs.x == player.x and stairs.y == player.y:
@@ -901,9 +943,10 @@ def new_game():
     dungeon_level = 1
 
     # Create object representing the player
-    fighter_component = Fighter(hp=30, defense=2, power=5, death_function=player_death)
+    fighter_component = Fighter(hp=30, defense=2, power=5, xp=0, death_function=player_death)
     player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
     inventory = []
+    player.level = 1
 
     # Generate map
     make_map()
@@ -938,13 +981,12 @@ def play_game():
     exit_game = False
     player_action = None
 
-    #mouse = tcod.Mouse()
-    #key = tcod.Key()
     while not tcod.console_is_window_closed() and not exit_game:
         tcod.sys_check_for_event(tcod.EVENT_KEY_PRESS | tcod.EVENT_MOUSE, key, mouse)
         render_all()
 
         tcod.console_flush()
+        check_level_up()
 
         # Erase all objects at their old locations before they move
         for object in objects:
