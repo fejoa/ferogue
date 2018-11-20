@@ -280,7 +280,7 @@ def save_game():
 
 def load_game():
     # Open the previously saved shelve and load the game data
-    global map, objects, player, inventory, game_msgs, game_state, dungeon_level
+    global map, objects, player, inventory, game_msgs, game_state, stairs, dungeon_level
 
     file = shelve.open('savegame', 'r')
     map = file['map']
