@@ -498,6 +498,7 @@ def place_objects(room):
     # Choose random number of monsters
     num_monsters = tcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
 
+    # Monster and item chances specified here
     monster_chances = {'fascist': 80, 'bourgeois': 20}
     item_chances = {'heal': 70, 'lightning': 10, 'fireball': 10, 'confuse': 10}
 
@@ -507,15 +508,14 @@ def place_objects(room):
         y = tcod.random_get_int(0, room.y1, room.y2)
 
         if not is_blocked(x, y):
-            #if tcod.random_get_int(0, 0, 100) < 80:
             choice = random_choice(monster_chances)
             if choice == 'fascist':
-                # 80% chance to create fascist
+                # Create fascist
                 fighter_component = Fighter(hp=10, defense=0, power=3, xp=35, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
             else:
-                # 20% chance to create bourgeois
+                # Create bourgeois
                 fighter_component = Fighter(hp=16, defense=1, power=4, xp=100, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
@@ -534,16 +534,16 @@ def place_objects(room):
         if not is_blocked(x, y):
             choice = random_choice(item_chances)
             if choice == 'heal':
-                # Create a healing potion (70% chance)
+                # Create a healing potion
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component, always_visible=True)
             if choice == 'lightning':
-                # Create a lightning scroll (10% chance)
+                # Create a lightning scroll
                 item_component = Item(use_function=cast_lightning)
                 item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component,
                               always_visible=True)
             if choice == 'fireball':
-                # Create a fireball scroll (10% chance)
+                # Create a fireball scroll
                 item_component = Item(use_function=cast_fireball)
                 item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component,
                               always_visible=True)
@@ -556,30 +556,6 @@ def place_objects(room):
 
             objects.append(item)
             item.send_to_back()  # Items appear below other objects
-
-
-            # dice = tcod.random_get_int(0, 0, 100)
-            # if dice < 70:
-            #     # Create a healing potion (70% chance)
-            #     item_component = Item(use_function=cast_heal)
-            #     item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component, always_visible=True)
-            # elif dice < 70+10:
-            #     item_component = Item(use_function=cast_lightning)
-            #
-            #     item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component, always_visible=True)
-            # elif dice < 70+10+10:
-            #     # Create a fireball scroll (10% chance)
-            #     item_component = Item(use_function=cast_fireball)
-            #
-            #     item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component, always_visible=True)
-            # else:
-            #     # Create a scroll of confusion
-            #     item_component = Item(use_function=cast_confuse)
-            #
-            #     item = Object(x, y, '#', 'scroll of confusion', tcod.light_yellow, item=item_component, always_visible=True)
-            #
-            # objects.append(item)
-            # item.send_to_back() # Items appear below other objects
 
 
 def create_room(room):
