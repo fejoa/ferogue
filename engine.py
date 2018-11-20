@@ -274,7 +274,7 @@ def save_game():
     file['game_msgs'] = game_msgs
     file['game_state'] = game_state
     file['stairs_index'] = objects.index(stairs)
-    file['dungeon_leve'] = dungeon_level
+    file['dungeon_level'] = dungeon_level
     file.close()
 
 
@@ -303,7 +303,6 @@ def from_dungeon_level(table):
             return value
 
     return 0
-
 
 
 def next_level():
@@ -562,12 +561,12 @@ def place_objects(room):
                 # Create a healing potion
                 item_component = Item(use_function=cast_heal)
                 item = Object(x, y, '!', 'healing potion', tcod.violet, item=item_component, always_visible=True)
-            if choice == 'lightning':
+            elif choice == 'lightning':
                 # Create a lightning scroll
                 item_component = Item(use_function=cast_lightning)
                 item = Object(x, y, '#', 'scroll of lightning bolt', tcod.light_yellow, item=item_component,
                               always_visible=True)
-            if choice == 'fireball':
+            elif choice == 'fireball':
                 # Create a fireball scroll
                 item_component = Item(use_function=cast_fireball)
                 item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component,
