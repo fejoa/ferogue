@@ -37,9 +37,6 @@ FOV_ALGO = 0
 FOV_LIGHT_WALLS = True
 TORCH_RADIUS = 10
 
-MAX_ROOM_MONSTERS = 3
-MAX_ROOM_ITEMS = 2
-
 HEAL_AMOUNT = 4
 LIGHTNING_RANGE = 5
 LIGHTNING_DAMAGE = 20
@@ -299,6 +296,16 @@ def load_game():
     initialize_fov()
 
 
+def from_dungeon_level(table):
+    # Return a value that depends on level. Table specifies what value occurs after each level, default is 0.
+    for(value, level) in reversed(table):
+        if dungeon_level >= level:
+            return value
+
+    return 0
+
+
+
 def next_level():
     global dungeon_level
     # Advance to the next level
@@ -495,12 +502,30 @@ def is_blocked(x, y):
 
 
 def place_objects(room):
-    # Choose random number of monsters
-    num_monsters = tcod.random_get_int(0, 0, MAX_ROOM_MONSTERS)
+    # Maximum number of monsters per room
+    max_monsters = from_dungeon_level([[2, 1], [3, 4], [5, 6]])
 
-    # Monster and item chances specified here
-    monster_chances = {'fascist': 80, 'bourgeois': 20}
-    item_chances = {'heal': 70, 'lightning': 10, 'fireball': 10, 'confuse': 10}
+    # Chance of each monster
+    monster_chances = {}
+    monster_chances['fascist'] = 80 # Fascist always show up, even if all other monsters have 0 chance
+    monster_chances['bourgeois'] = from_dungeon_level([[15, 3], [30, 5], [60, 7]])
+
+    # Maximum number of items per room
+    max_items = from_dungeon_level([[1, 1], [2, 4]])
+
+    # Chance of each item (by default they have a chance of 0 at level 1, which then goes up)
+    item_chances = {}
+    item_chances['heal'] = 35 # Healing potion always shows up, even if all other items have zero chance
+    item_chances['lightning'] = from_dungeon_level([[25, 4]])
+    item_chances['fireball'] = from_dungeon_level([[25, 6]])
+    item_chances['confuse'] = from_dungeon_level([[10, 2]])
+
+    # Choose random number of monsters
+    num_monsters = tcod.random_get_int(0, 0, max_monsters)
+
+    ## Monster and item chances specified here
+    #monster_chances = {'fascist': 80, 'bourgeois': 20}
+    #item_chances = {'heal': 70, 'lightning': 10, 'fireball': 10, 'confuse': 10}
 
     for i in range(num_monsters):
         # Choose random spot for this monster
@@ -523,7 +548,7 @@ def place_objects(room):
             objects.append(monster)
 
     # Choose random number of items
-    num_items = tcod.random_get_int(0, 0, MAX_ROOM_ITEMS)
+    num_items = tcod.random_get_int(0, 0, max_items)
 
     for i in range(num_items):
         # Choose random spot for this item
