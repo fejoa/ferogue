@@ -60,6 +60,30 @@ colour_light_wall = tcod.Color(130, 110, 50)
 colour_light_ground = tcod.Color(200, 180, 50)
 
 
+class Equipment:
+    # An object that can be equipped, yielding bonuses. Automatically adds the Item component.
+    def __init__(self, slot):
+        self.slot = slot
+        self.is_equipped = False
+
+    def toggle_equip(self): # Toggle equip/dequip status
+        if self.is_equipped:
+            self.dequip()
+        else:
+            self.equip()
+
+    def equip(self):
+        # Equip object and show a message about it
+        self.is_equipped = True
+        add_message('Equipped ' + self.owner.name + ' on ' + self.slot + '.', tcod.light_green)
+
+    def dequip(self):
+        # Dequip object and show a message about it
+        if not self.is_equipped: return
+        self.is_equipped = False
+        add_message('Dequipped ' + self.owner.name + ' from ' + self.slot + '.', tcod.light_yellow)
+
+
 class Item:
     # An item that can be picked up and used
     def __init__(self, use_function=None):
@@ -75,6 +99,10 @@ class Item:
             add_message('A ' + self.owner.name + ' picked up.', tcod.green)
 
     def use(self):
+        # Special case: if the object has the Equipment component, the 'use' action is to equip/dequip
+        if self.owner.equipment:
+            self.owner.equipment.toggle_equip()
+            return
         # Just call the "use_function" if it is defined
         if self.use_function is None:
             add_message('The ' + self.owner.name + ' cannot be used.')
@@ -196,7 +224,7 @@ class Tile:
 class Object:
     # This is a generic object: the player, a monster, an item, the toilet...
     # It's always represented by a character on the screen
-    def __init__(self, x, y, char, name, colour, blocks=False, always_visible=False, fighter=None, ai=None, item=None):
+    def __init__(self, x, y, char, name, colour, blocks=False, always_visible=False, fighter=None, ai=None, item=None, equipment=None):
         self.always_visible = always_visible
         self.name = name
         self.blocks = blocks
@@ -215,6 +243,12 @@ class Object:
         self.ai = ai
         if self.ai:
             self.ai.owner = self
+
+        self.equipment = equipment
+        if self.equipment:
+            self.equipment.owner = self
+            self.item = Item()
+            self.item.owner = self
 
     def send_to_back(self):
         # Make this object be drawn first, so all others appear above it if they're in the same tile
@@ -518,6 +552,7 @@ def place_objects(room):
     item_chances['lightning'] = from_dungeon_level([[25, 4]])
     item_chances['fireball'] = from_dungeon_level([[25, 6]])
     item_chances['confuse'] = from_dungeon_level([[10, 2]])
+    item_chances['sword'] = from_dungeon_level([[25, 0]])
 
     # Choose random number of monsters
     num_monsters = tcod.random_get_int(0, 0, max_monsters)
@@ -571,12 +606,16 @@ def place_objects(room):
                 item_component = Item(use_function=cast_fireball)
                 item = Object(x, y, '#', 'scroll of fireball', tcod.light_yellow, item=item_component,
                               always_visible=True)
-            else:
+            elif choice == 'confuse':
                 # Create a scroll of confusion
                 item_component = Item(use_function=cast_confuse)
 
                 item = Object(x, y, '#', 'scroll of confusion', tcod.light_yellow, item=item_component,
                               always_visible=True)
+            else:
+                # Create a sword
+                equipment_component = Equipment(slot='right hand')
+                item = Object(x, y, '/', 'sword', tcod.sky, equipment=equipment_component, always_visible=True)
 
             objects.append(item)
             item.send_to_back()  # Items appear below other objects
