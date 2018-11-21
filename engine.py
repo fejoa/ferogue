@@ -117,7 +117,7 @@ class Item:
         inventory.remove(self.owner)
         self.owner.x = player.x
         self.owner.y = player.y
-        add_message('You drop a ' + self.owner.name + '.' + tcod.yellow)
+        add_message('You drop a ' + self.owner.name + '.', tcod.yellow)
 
 
 class Fighter:
