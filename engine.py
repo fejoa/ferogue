@@ -1072,7 +1072,7 @@ def initialize_game():
     tcod.console_set_custom_font(font_path, font_flags)
 
     # Initialise screen
-    window_title = 'Python 3 tutorial'
+    window_title = 'Fascist exterminators'
     tcod.console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, window_title, FULLSCREEN)
 
     # set FPS
