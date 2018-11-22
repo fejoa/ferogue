@@ -73,6 +73,10 @@ class Equipment:
             self.equip()
 
     def equip(self):
+        # If the slot is already being used, dequip whatever is in there first
+        old_equipment = get_equipped_in_slot(self.slot)
+        if old_equipment is not None:
+            old_equipment.dequip()
         # Equip object and show a message about it
         self.is_equipped = True
         add_message('Equipped ' + self.owner.name + ' on ' + self.slot + '.', tcod.light_green)
@@ -98,6 +102,11 @@ class Item:
             objects.remove(self.owner)
             add_message('A ' + self.owner.name + ' picked up.', tcod.green)
 
+        # Automatically equip object if slot empty
+        equipment = self.owner.equipment
+        if equipment and get_equipped_in_slot(equipment.slot) is None:
+            equipment.equip()
+
     def use(self):
         # Special case: if the object has the Equipment component, the 'use' action is to equip/dequip
         if self.owner.equipment:
@@ -111,6 +120,9 @@ class Item:
                 inventory.remove(self.owner) # destroy after use, unless it was cancelled for some reason
 
     def drop(self):
+        # If the object has the equipment component, dequip it before dropping
+        if self.owner.equipment:
+            self.owner.equipment.dequip()
         # Add to the map and remove from the player's inventory
         # Also, Place it at the player's coordinates
         objects.append(self.owner)
@@ -328,6 +340,13 @@ def load_game():
     file.close()
 
     initialize_fov()
+
+
+def get_equipped_in_slot(slot): # Returns the equipment in a slot, or None if it's empty
+    for obj in inventory:
+        if obj.equipment and obj.equipment.slot == slot and obj.equipment.is_equipped:
+            return obj.equipment
+    return None
 
 
 def from_dungeon_level(table):
@@ -557,10 +576,6 @@ def place_objects(room):
     # Choose random number of monsters
     num_monsters = tcod.random_get_int(0, 0, max_monsters)
 
-    ## Monster and item chances specified here
-    #monster_chances = {'fascist': 80, 'bourgeois': 20}
-    #item_chances = {'heal': 70, 'lightning': 10, 'fireball': 10, 'confuse': 10}
-
     for i in range(num_monsters):
         # Choose random spot for this monster
         x = tcod.random_get_int(0, room.x1, room.x2)
@@ -731,7 +746,13 @@ def inventory_menu(header):
     if len(inventory) == 0:
         options = ['Inventory is empty.']
     else:
-        options = [item.name for item in inventory]
+        options = []
+        for item in inventory:
+            text = item.name
+            # Show additional information, in case it's equipped
+            if item.equipment and item.equipment.is_equipped:
+                text = text + ' (on ' + item.equipment.slot + ')'
+            options.append(text)
 
     index = menu(header, options, INVENTORY_WIDTH)
 
