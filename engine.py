@@ -39,11 +39,11 @@ TORCH_RADIUS = 10
 
 HEAL_AMOUNT = 4
 LIGHTNING_RANGE = 5
-LIGHTNING_DAMAGE = 20
+LIGHTNING_DAMAGE = 40
 CONFUSE_NUM_TURNS = 10
 CONFUSE_RANGE = 10
 FIREBALL_RADIUS = 3
-FIREBALL_DAMAGE = 12
+FIREBALL_DAMAGE = 25
 
 # Experience and level-ups
 LEVEL_UP_BASE = 200
@@ -585,12 +585,12 @@ def place_objects(room):
             choice = random_choice(monster_chances)
             if choice == 'fascist':
                 # Create fascist
-                fighter_component = Fighter(hp=10, defense=0, power=3, xp=35, death_function=monster_death)
+                fighter_component = Fighter(hp=20, defense=0, power=4, xp=35, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'f', 'fascist', tcod.desaturated_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
             else:
                 # Create bourgeois
-                fighter_component = Fighter(hp=16, defense=1, power=4, xp=100, death_function=monster_death)
+                fighter_component = Fighter(hp=30, defense=2, power=8, xp=100, death_function=monster_death)
                 ai_component = BasicMonster()
                 monster = Object(x, y, 'B', 'bourgeois', tcod.darker_fuchsia, blocks=True, fighter=fighter_component, ai=ai_component)
 
@@ -1068,7 +1068,7 @@ def new_game():
     dungeon_level = 1
 
     # Create object representing the player
-    fighter_component = Fighter(hp=30, defense=2, power=5, xp=0, death_function=player_death)
+    fighter_component = Fighter(hp=30, defense=1, power=4, xp=0, death_function=player_death)
     player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
     inventory = []
     player.level = 1
