@@ -169,8 +169,9 @@ class Fighter:
                 function = self.death_function
                 if function is not None:
                     function(self.owner)
-        if self.owner != player: # yield experience to the player
-            player.fighter.xp += self.xp
+
+                if self.owner != player: # yield experience to the player
+                    player.fighter.xp += self.xp
 
     def attack(self, target):
         # A simple formula for attack damage
@@ -397,7 +398,6 @@ def get_all_equipped(obj): # Returns a list of equipped items
         return equipped_list
     else:
         return [] # Other objects have no equipment
-
 
 
 def check_level_up():
