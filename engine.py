@@ -375,7 +375,7 @@ def check_level_up():
     level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
     if player.fighter.xp >= level_up_xp:
         # it is, therefore level up
-        player.fighter.xp += 1
+        player.level += 1
         player.fighter.xp -= level_up_xp
         add_message('Your battle skills grow stronger! You reach level ' + str(player.level) + '!', tcod.gold)
 
