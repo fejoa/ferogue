@@ -600,8 +600,8 @@ def place_objects(room):
     item_chances['lightning'] = from_dungeon_level([[25, 4]])
     item_chances['fireball'] = from_dungeon_level([[25, 6]])
     item_chances['confuse'] = from_dungeon_level([[10, 2]])
-    item_chances['sword'] = from_dungeon_level([[25, 0]])
-    item_chances['shield'] = from_dungeon_level([[25, 0]])
+    item_chances['sword'] = from_dungeon_level([[5, 2]])
+    item_chances['shield'] = from_dungeon_level([[15, 4]])
 
     # Choose random number of monsters
     num_monsters = tcod.random_get_int(0, 0, max_monsters)
