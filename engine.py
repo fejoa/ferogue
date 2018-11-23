@@ -62,7 +62,10 @@ colour_light_ground = tcod.Color(200, 180, 50)
 
 class Equipment:
     # An object that can be equipped, yielding bonuses. Automatically adds the Item component.
-    def __init__(self, slot):
+    def __init__(self, slot, power_bonus=0, defense_bonus=0, max_hp_bonus=0):
+        self.power_bonus = power_bonus
+        self.defense_bonus = defense_bonus
+        self.max_hp_bonus = max_hp_bonus
         self.slot = slot
         self.is_equipped = False
 
@@ -135,12 +138,27 @@ class Item:
 class Fighter:
     # Combat-related properties and methods (monster, player, NPC)
     def __init__(self, hp, defense, power, xp, death_function=None):
-        self.max_hp = hp
+        self.base_max_hp = hp
         self.hp = hp
-        self.defense = defense
-        self.power = power
+        self.base_defense = defense
+        self.base_power = power
         self.xp = xp
         self.death_function = death_function
+
+    @property
+    def power(self): # Return actual power by summing up the bonuses from all equipped items
+        bonus = sum(equipment.power_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_power + bonus
+
+    @property
+    def defense(self): # return actual defence, by summing up bonuses from euipment
+        bonus = sum(equipment.defense_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_defense + bonus
+
+    @property
+    def max_hp(self): # Return actual max hp, by summing up the bonuses from all equipped items
+        bonus = sum(equipment.max_hp_bonus for equipment in get_all_equipped(self.owner))
+        return self.base_max_hp + bonus
 
     def take_damage(self, damage):
         # Apply damage if possible
@@ -370,6 +388,18 @@ def next_level():
     initialize_fov()
 
 
+def get_all_equipped(obj): # Returns a list of equipped items
+    if obj == player:
+        equipped_list = []
+        for item in inventory:
+            if item.equipment and item.equipment.is_equipped:
+                equipped_list.append(item.equipment)
+        return equipped_list
+    else:
+        return [] # Other objects have no equipment
+
+
+
 def check_level_up():
     # See if the player's experience is enough to level-up
     level_up_xp = LEVEL_UP_BASE + player.level * LEVEL_UP_FACTOR
@@ -387,12 +417,12 @@ def check_level_up():
                            'Agility (+1 defense, from ' + str(player.fighter.defense) + ')'], LEVEL_SCREEN_WIDTH)
 
             if choice == 0:
-                player.fighter.max_hp += 10
+                player.fighter.base_max_hp += 10
                 player.fighter.hp += 10
             elif choice == 1:
-                player.fighter.power += 1
+                player.fighter.base_power += 1
             elif choice == 2:
-                player.fighter.defense += 1
+                player.fighter.base_defense += 1
 
 
 def random_choice(chances_dict):
@@ -493,7 +523,6 @@ def cast_confuse():
     add_message('The eyes of the ' + monster.name + ' look vacant. He starts to shamble around.', tcod.light_green)
 
 
-
 def cast_lightning():
     # Find closest enemy inside a max range and damage it
     monster = closest_monster(LIGHTNING_RANGE)
@@ -572,6 +601,7 @@ def place_objects(room):
     item_chances['fireball'] = from_dungeon_level([[25, 6]])
     item_chances['confuse'] = from_dungeon_level([[10, 2]])
     item_chances['sword'] = from_dungeon_level([[25, 0]])
+    item_chances['shield'] = from_dungeon_level([[25, 0]])
 
     # Choose random number of monsters
     num_monsters = tcod.random_get_int(0, 0, max_monsters)
@@ -627,10 +657,15 @@ def place_objects(room):
 
                 item = Object(x, y, '#', 'scroll of confusion', tcod.light_yellow, item=item_component,
                               always_visible=True)
-            else:
+            elif choice == 'sword':
                 # Create a sword
-                equipment_component = Equipment(slot='right hand')
+                equipment_component = Equipment(slot='right hand', power_bonus=3)
                 item = Object(x, y, '/', 'sword', tcod.sky, equipment=equipment_component, always_visible=True)
+
+            else:
+                # Create a shield
+                equipment_component = Equipment(slot='left hand', defense_bonus=1)
+                item = Object(x, y, '[', 'shield', tcod.darker_orange, equipment=equipment_component, always_visible=True)
 
             objects.append(item)
             item.send_to_back()  # Items appear below other objects
@@ -1068,7 +1103,7 @@ def new_game():
     dungeon_level = 1
 
     # Create object representing the player
-    fighter_component = Fighter(hp=30, defense=1, power=4, xp=0, death_function=player_death)
+    fighter_component = Fighter(hp=30, defense=1, power=2, xp=0, death_function=player_death)
     player = Object(0, 0, '@', 'player', tcod.white, blocks=True, fighter=fighter_component)
     inventory = []
     player.level = 1
@@ -1082,6 +1117,13 @@ def new_game():
 
     # Welcome message
     add_message('Welcome stranger. Get ready to kick some imperialist butt!', tcod.grey)
+
+    # Initial equipment: a dagger
+    equipment_component = Equipment(slot='right hand', power_bonus=2)
+    obj = Object(0, 0, '-', 'dagger', tcod.sky, equipment=equipment_component)
+    inventory.append(obj)
+    equipment_component.equip()
+    obj.always_visible = True
 
 
 def initialize_game():
